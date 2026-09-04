@@ -1,91 +1,191 @@
 /* ============================================================
- * DASHBOARD OPERACIONAL & LOGÍSTICO - SCRIPT CORRIGIDO
+ * VARIÁVEIS GLOBAIS DE ESTADO
  * ============================================================ */
-
-// Estado Global da Aplicação
 let dadosBrutos = [];
 let dadosFiltrados = [];
 let graficoRegiaoInstance = null;
 let graficoTipoInstance = null;
 
-/* ============================================================
- * INICIALIZAÇÃO E EVENTOS
- * ============================================================ */
+/* Mapeamento amigável de siglas de regiões para nomes por extenso */
+const DEPARA_REGIOES = {
+    'SP': 'São Paulo',
+    'RJ': 'Rio de Janeiro',
+    'MG': 'Minas Gerais',
+    'ES': 'Espírito Santo',
+    'PR': 'Paraná',
+    'SC': 'Santa Catarina',
+    'RS': 'Rio Grande do Sul',
+    'BA': 'Bahia',
+    'PE': 'Pernambuco',
+    'CE': 'Ceará',
+    'GO': 'Goiás',
+    'DF': 'Distrito Federal'
+};
 
-document.addEventListener("DOMContentLoaded", function () {
-    const excelFile = document.getElementById("excelFile");
+/* ============================================================
+ * EVENTOS INICIAIS DA PÁGINA
+ * ============================================================ */
+document.addEventListener("DOMContentLoaded", () => {
     const btnUpdate = document.getElementById("btnUpdate");
+    const btnClear = document.getElementById("btnClear");
+    const excelFileInput = document.getElementById("excelFile");
     const statusFilter = document.getElementById("statusFilter");
     const regionFilter = document.getElementById("regionFilter");
     const startDate = document.getElementById("startDate");
     const endDate = document.getElementById("endDate");
-    const btnClear = document.getElementById("btnClear");
 
-    if (excelFile) excelFile.addEventListener("change", lerArquivo);
-    if (btnUpdate) btnUpdate.addEventListener("click", processarEAtualizar);
+    if (excelFileInput) {
+        excelFileInput.addEventListener("change", processarArquivoExcel);
+    }
+
+    if (btnUpdate) {
+        btnUpdate.addEventListener("click", processarEAtualizar);
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener("click", limparFiltros);
+    }
+
+    // Atualização automática ao alterar filtros
     if (statusFilter) statusFilter.addEventListener("change", processarEAtualizar);
     if (regionFilter) regionFilter.addEventListener("change", processarEAtualizar);
     if (startDate) startDate.addEventListener("change", processarEAtualizar);
     if (endDate) endDate.addEventListener("change", processarEAtualizar);
-    if (btnClear) btnClear.addEventListener("click", limparFiltros);
 });
 
 /* ============================================================
- * LEITURA DE ARQUIVOS (XLSX / CSV)
+ * FUNÇÕES AUXILIARES DE TRATAMENTO DE COLUNAS E STRINGS
  * ============================================================ */
 
-function lerArquivo(evento) {
-    const arquivo = evento.target.files[0];
-    if (!arquivo) return;
+// Normaliza texto para busca (remove acentos, espaços e deixa em minúsculo)
+function normalizarChave(str) {
+    return String(str || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+}
 
-    const leitor = new FileReader();
+// Procura o valor de uma coluna independentemente de como foi escrita na planilha
+function extrairValorColuna(row, nomesPossiveis) {
+    if (!row) return "";
+    const chaves = Object.keys(row);
 
-    leitor.onload = function (e) {
+    for (const nome of nomesPossiveis) {
+        const nomeAlvo = normalizarChave(nome);
+        const chaveEncontrada = chaves.find(k => normalizarChave(k) === nomeAlvo);
+        if (chaveEncontrada && row[chaveEncontrada] !== undefined && row[chaveEncontrada] !== "") {
+            return String(row[chaveEncontrada]).trim();
+        }
+    }
+    return "";
+}
+
+function nomeRegiao(sigla) {
+    if (!sigla) return 'Outros';
+    const chave = String(sigla).toUpperCase().trim();
+    return DEPARA_REGIOES[chave] || sigla;
+}
+
+/* ============================================================
+ * TRATAMENTO DE DATAS
+ * ============================================================ */
+function obterTimestampZerado(valorData) {
+    if (!valorData) return null;
+
+    let d = null;
+
+    // Se for número serial de data do Excel
+    if (typeof valorData === 'number') {
+        d = new Date(Math.round((valorData - 25569) * 86400 * 1000));
+    } else if (typeof valorData === 'string') {
+        const partes = valorData.split(/[-/]/);
+        if (partes.length === 3) {
+            if (partes[0].length === 4) {
+                // Formato YYYY-MM-DD
+                d = new Date(partes[0], partes[1] - 1, partes[2]);
+            } else {
+                // Formato DD/MM/YYYY
+                d = new Date(partes[2], partes[1] - 1, partes[0]);
+            }
+        } else {
+            d = new Date(valorData);
+        }
+    } else if (valorData instanceof Date) {
+        d = valorData;
+    }
+
+    if (!d || isNaN(d.getTime())) return null;
+
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+}
+
+function formatarData(timestamp) {
+    if (!timestamp || timestamp === 9999999999999) return "Sem Data";
+    const d = new Date(timestamp);
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const ano = d.getFullYear();
+    return `${dia}/${mes}/${ano}`;
+}
+
+/* ============================================================
+ * LEITURA DO ARQUIVO EXCEL / CSV
+ * ============================================================ */
+function processarArquivoExcel(event) {
+    const file = event.target.files[0];
+    const statusBase = document.getElementById("statusBase");
+    const statusIcon = document.getElementById("statusIcon");
+    const statusMensagem = document.getElementById("statusMensagem");
+    const statusDetalhes = document.getElementById("statusDetalhes");
+    const painelErro = document.getElementById("painelErro");
+
+    if (!file) return;
+
+    if (painelErro) painelErro.style.display = "none";
+
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
         try {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array", cellDates: true });
-            const primeiraAba = workbook.SheetNames[0];
-            const planilha = workbook.Sheets[primeiraAba];
+            const workbook = XLSX.read(data, { type: "array" });
 
-            // Converte para JSON
-            dadosBrutos = XLSX.utils.sheet_to_json(planilha, { defval: "" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
 
-            // Atualiza status na interface
-            const statusIcon = document.getElementById("statusIcon");
-            const statusMensagem = document.getElementById("statusMensagem");
-            const statusDetalhes = document.getElementById("statusDetalhes");
+            dadosBrutos = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+            if (dadosBrutos.length === 0) {
+                throw new Error("A planilha selecionada está vazia.");
+            }
 
             if (statusIcon) statusIcon.innerText = "🟢";
             if (statusMensagem) statusMensagem.innerText = "Base carregada com sucesso!";
             if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} registros importados.`;
 
-            // Oculta painel de erro se estiver visível
-            const painelErro = document.getElementById("painelErro");
-            if (painelErro) painelErro.style.display = "none";
-
             popularFiltrosSelect(dadosBrutos);
             processarEAtualizar();
-        } catch (erro) {
-            console.error("Erro ao ler arquivo:", erro);
-            const painelErro = document.getElementById("painelErro");
-            const erroDetalhes = document.getElementById("erroDetalhes");
 
-            if (painelErro && erroDetalhes) {
+        } catch (error) {
+            if (statusIcon) statusIcon.innerText = "🔴";
+            if (statusMensagem) statusMensagem.innerText = "Erro ao carregar a base";
+            if (statusDetalhes) statusDetalhes.innerText = "Não foi possível ler o arquivo enviado.";
+
+            if (painelErro) {
                 painelErro.style.display = "block";
-                erroDetalhes.innerText = erro.message || "Falha ao processar a planilha.";
-            } else {
-                alert("Falha ao processar o arquivo. Verifique se é um arquivo Excel/CSV válido.");
+                document.getElementById("erroDetalhes").innerText = error.message || "Erro desconhecido ao processar planilha.";
             }
         }
     };
 
-    leitor.readAsArrayBuffer(arquivo);
+    reader.readAsArrayBuffer(file);
 }
 
 /* ============================================================
- * POPULAR OPÇÕES DOS FILTROS (DROPDOWNS)
+ * POPULAR SELECTS DE FILTROS DINAMICAMENTE
  * ============================================================ */
-
 function popularFiltrosSelect(dados) {
     const statusFilter = document.getElementById("statusFilter");
     const regionFilter = document.getElementById("regionFilter");
@@ -96,20 +196,18 @@ function popularFiltrosSelect(dados) {
     const regionSet = new Set();
 
     dados.forEach((row) => {
-        const st = normalizarTexto(row.STATUS || row.Status || row.status);
-        const rg = normalizarTexto(row.REGIAO || row.Regiao || row.regiao || row.UF || row.Estado);
+        const st = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]);
+        const rg = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]);
 
         if (st) statusSet.add(st);
         if (rg) regionSet.add(rg);
     });
 
-    // Atualiza Select de Status
     statusFilter.innerHTML = '<option value="TODOS">Todos os Status</option>';
     Array.from(statusSet).sort().forEach((st) => {
         statusFilter.innerHTML += `<option value="${st}">${st}</option>`;
     });
 
-    // Atualiza Select de Região
     regionFilter.innerHTML = '<option value="TODAS">Todas as Regiões</option>';
     Array.from(regionSet).sort().forEach((rg) => {
         regionFilter.innerHTML += `<option value="${rg}">${nomeRegiao(rg)}</option>`;
@@ -117,9 +215,8 @@ function popularFiltrosSelect(dados) {
 }
 
 /* ============================================================
- * PROCESSAMENTO E FILTRAGEM
+ * FILTRAGEM E ATUALIZAÇÃO GERAL
  * ============================================================ */
-
 function processarEAtualizar() {
     if (!dadosBrutos || dadosBrutos.length === 0) return;
 
@@ -132,16 +229,13 @@ function processarEAtualizar() {
     const endTimestamp = obterTimestampZerado(endVal);
 
     dadosFiltrados = dadosBrutos.filter((row) => {
-        // Status
-        const st = normalizarTexto(row.STATUS || row.Status || row.status);
+        const st = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]);
         if (statusSel !== "TODOS" && st !== statusSel) return false;
 
-        // Região
-        const rg = normalizarTexto(row.REGIAO || row.Regiao || row.regiao || row.UF || row.Estado);
+        const rg = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]);
         if (regionSel !== "TODAS" && rg !== regionSel) return false;
 
-        // Data
-        const rawData = row.DATA || row.Data || row.data || row.DATA_AGENDAMENTO || row.DataAgendamento;
+        const rawData = extrairValorColuna(row, ["DATA", "DATE", "DATA AGENDAMENTO", "AGENDAMENTO", "DATA_AGENDAMENTO"]);
         const dataTimestamp = obterTimestampZerado(rawData);
 
         if (startTimestamp && (!dataTimestamp || dataTimestamp < startTimestamp)) return false;
@@ -156,9 +250,8 @@ function processarEAtualizar() {
 }
 
 /* ============================================================
- * ATUALIZAÇÃO DE KPIS (CARDS DE RESUMO)
+ * ATUALIZAÇÃO DOS KPIS
  * ============================================================ */
-
 function atualizarKPIs(dados) {
     const painelKPIs = document.getElementById("painelKPIs");
     if (!painelKPIs) return;
@@ -168,10 +261,10 @@ function atualizarKPIs(dados) {
     let concluidos = 0;
 
     dados.forEach((row) => {
-        const st = normalizarTexto(row.STATUS || row.Status || row.status).toUpperCase();
-        if (st.includes("CONCLU") || st.includes("ENTREGUE") || st.includes("FINALIZADO")) {
+        const st = normalizarChave(extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]));
+        if (st.includes("conclu") || st.includes("entreg") || st.includes("finaliz") || st.includes("ok")) {
             concluidos++;
-        } else if (st.includes("PENDENTE") || st.includes("EM ANDAMENTO") || st.includes("AGUARDANDO")) {
+        } else if (st.includes("pend") || st.includes("andament") || st.includes("aguard") || st.includes("abert")) {
             pendentes++;
         }
     });
@@ -193,9 +286,8 @@ function atualizarKPIs(dados) {
 }
 
 /* ============================================================
- * GRÁFICOS (CHART.JS)
+ * ATUALIZAÇÃO DOS GRÁFICOS (CHART.JS)
  * ============================================================ */
-
 function atualizarGraficos(dados) {
     const ctxRegiao = document.getElementById("chartRegiao")?.getContext("2d");
     const ctxTipo = document.getElementById("chartTipo")?.getContext("2d");
@@ -204,14 +296,15 @@ function atualizarGraficos(dados) {
     const tipoCounts = {};
 
     dados.forEach((row) => {
-        const rg = nomeRegiao(normalizarTexto(row.REGIAO || row.Regiao || row.regiao || row.UF || row.Estado) || "N/A");
-        const tp = normalizarTexto(row.TIPO || row.Tipo || row.tipo || row.OPERACAO || row.Operacao) || "Outros";
+        const rgBruta = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]) || "N/A";
+        const rg = nomeRegiao(rgBruta);
+
+        const tp = extrairValorColuna(row, ["TIPO", "OPERACAO", "OPERAÇÃO", "TIPO OPERACAO", "SERVICO", "SERVIÇO"]) || "Outros";
 
         regiaoCounts[rg] = (regiaoCounts[rg] || 0) + 1;
         tipoCounts[tp] = (tipoCounts[tp] || 0) + 1;
     });
 
-    // Gráfico por Região (Barras)
     if (ctxRegiao) {
         if (graficoRegiaoInstance) graficoRegiaoInstance.destroy();
         graficoRegiaoInstance = new Chart(ctxRegiao, {
@@ -221,14 +314,13 @@ function atualizarGraficos(dados) {
                 datasets: [{
                     label: "Volume por Região",
                     data: Object.values(regiaoCounts),
-                    backgroundColor: "#3b82f6"
+                    backgroundColor: "#2563eb"
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
 
-    // Gráfico por Tipo (Rosca/Doughnut)
     if (ctxTipo) {
         if (graficoTipoInstance) graficoTipoInstance.destroy();
         graficoTipoInstance = new Chart(ctxTipo, {
@@ -246,9 +338,8 @@ function atualizarGraficos(dados) {
 }
 
 /* ============================================================
- * TABELA PRINCIPAL / AGENDA
+ * ATUALIZAÇÃO DA TABELA DE AGENDA
  * ============================================================ */
-
 function atualizarTabelaAgenda(dados) {
     const tbody = document.querySelector("#tabelaAgenda tbody");
     if (!tbody) return;
@@ -256,10 +347,10 @@ function atualizarTabelaAgenda(dados) {
     const grupos = {};
 
     dados.forEach((row) => {
-        const rawData = row.DATA || row.Data || row.data || row.DATA_AGENDAMENTO || row.DataAgendamento;
+        const rawData = extrairValorColuna(row, ["DATA", "DATE", "DATA AGENDAMENTO", "AGENDAMENTO", "DATA_AGENDAMENTO"]);
         const ts = obterTimestampZerado(rawData) || 9999999999999;
-        const regiao = normalizarTexto(row.REGIAO || row.Regiao || row.regiao || row.UF || row.Estado) || "N/A";
-        const status = normalizarTexto(row.STATUS || row.Status || row.status) || "Indefinido";
+        const regiao = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]) || "N/A";
+        const status = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]) || "Indefinido";
 
         const chave = `${ts}_${regiao}_${status}`;
 
@@ -296,7 +387,7 @@ function atualizarTabelaAgenda(dados) {
         tr.innerHTML = `
             <td>${grupo.data}</td>
             <td>${nomeRegiao(grupo.regiao)}</td>
-            <td><span class="badge status-${grupo.status.toLowerCase().replace(/\s+/g, '-')}">${grupo.status}</span></td>
+            <td><span class="badge status-${normalizarChave(grupo.status)}">${grupo.status}</span></td>
             <td><strong>${grupo.quantidade}</strong></td>
         `;
 
@@ -305,74 +396,8 @@ function atualizarTabelaAgenda(dados) {
 }
 
 /* ============================================================
- * MANIPULAÇÃO DE DATAS & UTILITÁRIOS
+ * LIMPEZA DE FILTROS
  * ============================================================ */
-
-function obterTimestampZerado(valorData) {
-    if (!valorData) return null;
-
-    let data = null;
-
-    if (valorData instanceof Date) {
-        data = new Date(valorData);
-    } else if (typeof valorData === "number") {
-        data = new Date(Math.round((valorData - 25569) * 86400 * 1000));
-    } else if (typeof valorData === "string") {
-        const texto = valorData.trim();
-        if (!texto) return null;
-
-        if (texto.includes("/")) {
-            const partes = texto.split("/");
-            if (partes.length === 3) {
-                data = new Date(partes[2], partes[1] - 1, partes[0]);
-            }
-        } else if (texto.includes("-")) {
-            const partes = texto.split("-");
-            if (partes.length === 3) {
-                data = new Date(partes[0], partes[1] - 1, partes[2]);
-            }
-        }
-    }
-
-    if (!data || isNaN(data.getTime())) {
-        return null;
-    }
-
-    data.setHours(0, 0, 0, 0);
-    return data.getTime();
-}
-
-function formatarData(timestamp) {
-    if (!timestamp || timestamp === 9999999999999) return "Sem Data";
-    const data = new Date(timestamp);
-    const dia = String(data.getDate()).padStart(2, "0");
-    const mes = String(data.getMonth() + 1).padStart(2, "0");
-    const ano = data.getFullYear();
-    return `${dia}/${mes}/${ano}`;
-}
-
-function normalizarTexto(texto) {
-    if (!texto) return "";
-    return String(texto).trim();
-}
-
-function nomeRegiao(codigoOuNome) {
-    if (!codigoOuNome) return "N/A";
-    const mapa = {
-        "MG": "Minas Gerais",
-        "SP": "São Paulo",
-        "RJ": "Rio de Janeiro",
-        "PR": "Paraná",
-        "SC": "Santa Catarina",
-        "RS": "Rio Grande do Sul"
-    };
-    return mapa[codigoOuNome.toUpperCase()] || codigoOuNome;
-}
-
-/* ============================================================
- * LIMPAR FILTROS
- * ============================================================ */
-
 function limparFiltros() {
     const statusFilter = document.getElementById("statusFilter");
     const regionFilter = document.getElementById("regionFilter");
