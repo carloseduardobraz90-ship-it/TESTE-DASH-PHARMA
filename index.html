@@ -1,8 +1,8 @@
-```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -11,21 +11,23 @@
     <!-- CSS -->
     <link rel="stylesheet" href="style.css">
 
-    <!-- SheetJS - leitura de Excel/CSV -->
+    <!-- SheetJS -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Plugin de números nos gráficos -->
+    <!-- DataLabels -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 
-    <!-- JavaScript Principal -->
+    <!-- JavaScript -->
     <script src="script.js" defer></script>
 
 </head>
 
+
 <body>
+
 
     <!-- =====================================================
          CABEÇALHO
@@ -42,11 +44,13 @@
     </header>
 
 
+
     <!-- =====================================================
-         CONTROLES / FILTROS
+         CONTROLES
          ===================================================== -->
 
     <section class="controls-card">
+
 
         <!-- ARQUIVO -->
 
@@ -61,6 +65,23 @@
         </div>
 
 
+
+        <!-- BOTÃO ATUALIZAR -->
+
+        <div class="control-group">
+
+            <label>
+                Atualização
+            </label>
+
+            <button type="button" class="btn-update" id="btnUpdate">
+                🔄 Atualizar Dashboard
+            </button>
+
+        </div>
+
+
+
         <!-- STATUS -->
 
         <div class="control-group">
@@ -71,13 +92,14 @@
 
             <select id="statusFilter">
 
-                <option value="TODOS" selected>
+                <option value="TODOS">
                     Todos os Status
                 </option>
 
             </select>
 
         </div>
+
 
 
         <!-- REGIÃO -->
@@ -90,13 +112,14 @@
 
             <select id="regionFilter">
 
-                <option value="TODAS" selected>
+                <option value="TODAS">
                     Todas as Regiões
                 </option>
 
             </select>
 
         </div>
+
 
 
         <!-- DATA INICIAL -->
@@ -112,6 +135,7 @@
         </div>
 
 
+
         <!-- DATA FINAL -->
 
         <div class="control-group">
@@ -125,9 +149,14 @@
         </div>
 
 
+
         <!-- LIMPAR -->
 
         <div class="control-group">
+
+            <label>
+                Filtros
+            </label>
 
             <button type="button" class="btn-clear" id="btnClear">
                 Limpar Filtros
@@ -138,13 +167,66 @@
     </section>
 
 
+
     <!-- =====================================================
-         PAINEL DE KPIS
+         STATUS DA BASE
+         ===================================================== -->
+
+    <section id="statusBase" class="status-base">
+
+        <div class="status-base-title">
+
+            <span id="statusIcon">
+                ⚪
+            </span>
+
+            <strong id="statusMensagem">
+                Nenhuma base carregada
+            </strong>
+
+        </div>
+
+
+        <div id="statusDetalhes" class="status-detalhes">
+
+            Selecione um arquivo e clique em
+            "Atualizar Dashboard".
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =====================================================
+         PAINEL DE ERRO
+         ===================================================== -->
+
+    <section id="painelErro" class="painel-erro" style="display:none;">
+
+        <div class="erro-titulo">
+
+            ❌ Erro ao processar a base
+
+        </div>
+
+
+        <div id="erroDetalhes"></div>
+
+    </section>
+
+
+
+    <!-- =====================================================
+         KPIS
          ===================================================== -->
 
     <section id="painelKPIs">
-        <!-- Preenchido dinamicamente pelo JavaScript -->
+
+        <!-- Preenchido pelo JavaScript -->
+
     </section>
+
 
 
     <!-- =====================================================
@@ -152,8 +234,11 @@
          ===================================================== -->
 
     <section id="painelRegioes">
-        <!-- Preenchido dinamicamente pelo JavaScript -->
+
+        <!-- Preenchido pelo JavaScript -->
+
     </section>
+
 
 
     <!-- =====================================================
@@ -163,12 +248,12 @@
     <main class="grid-container">
 
 
-        <!-- GRÁFICO DE CIDADES -->
+        <!-- REGIÃO -->
 
         <section class="card">
 
             <h3>
-                Volume de Pedidos por Cidade
+                Volume de Pedidos por Região
             </h3>
 
             <div class="chart-box">
@@ -180,7 +265,8 @@
         </section>
 
 
-        <!-- GRÁFICO DE TIPOS -->
+
+        <!-- TIPO -->
 
         <section class="card">
 
@@ -199,8 +285,9 @@
     </main>
 
 
+
     <!-- =====================================================
-         TABELA DE AGENDA
+         AGENDA
          ===================================================== -->
 
     <section class="card" id="cardTabelaAgenda">
@@ -210,8 +297,12 @@
         </h3>
 
         <p class="table-help">
-            Clique na quantidade de pedidos para visualizar os pedidos e fornecedores.
+
+            Clique na quantidade de pedidos para
+            visualizar os pedidos e fornecedores.
+
         </p>
+
 
         <div class="table-responsive">
 
@@ -233,8 +324,11 @@
 
                 </thead>
 
+
                 <tbody>
-                    <!-- Preenchido dinamicamente pelo JavaScript -->
+
+                    <!-- JavaScript -->
+
                 </tbody>
 
             </table>
@@ -243,7 +337,7 @@
 
     </section>
 
+
 </body>
 
 </html>
-```
