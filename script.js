@@ -3,24 +3,8 @@
  * ============================================================ */
 let dadosBrutos = [];
 let dadosFiltrados = [];
-let graficoRegiaoInstance = null;
-let graficoTipoInstance = null;
-
-/* Mapeamento amigável de siglas de regiões para nomes por extenso */
-const DEPARA_REGIOES = {
-    'SP': 'São Paulo',
-    'RJ': 'Rio de Janeiro',
-    'MG': 'Minas Gerais',
-    'ES': 'Espírito Santo',
-    'PR': 'Paraná',
-    'SC': 'Santa Catarina',
-    'RS': 'Rio Grande do Sul',
-    'BA': 'Bahia',
-    'PE': 'Pernambuco',
-    'CE': 'Ceará',
-    'GO': 'Goiás',
-    'DF': 'Distrito Federal'
-};
+let graficoTransportadoraInstance = null;
+let graficoStatusInstance = null;
 
 /* ============================================================
  * EVENTOS INICIAIS DA PÁGINA
@@ -30,9 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnClear = document.getElementById("btnClear");
     const excelFileInput = document.getElementById("excelFile");
     const statusFilter = document.getElementById("statusFilter");
-    const regionFilter = document.getElementById("regionFilter");
-    const startDate = document.getElementById("startDate");
-    const endDate = document.getElementById("endDate");
+    const transportadoraFilter = document.getElementById("transportadoraFilter");
+    const monthFilter = document.getElementById("monthFilter");
 
     if (excelFileInput) {
         excelFileInput.addEventListener("change", processarArquivoExcel);
@@ -46,18 +29,14 @@ document.addEventListener("DOMContentLoaded", () => {
         btnClear.addEventListener("click", limparFiltros);
     }
 
-    // Atualização automática ao alterar filtros
     if (statusFilter) statusFilter.addEventListener("change", processarEAtualizar);
-    if (regionFilter) regionFilter.addEventListener("change", processarEAtualizar);
-    if (startDate) startDate.addEventListener("change", processarEAtualizar);
-    if (endDate) endDate.addEventListener("change", processarEAtualizar);
+    if (transportadoraFilter) transportadoraFilter.addEventListener("change", processarEAtualizar);
+    if (monthFilter) monthFilter.addEventListener("change", processarEAtualizar);
 });
 
 /* ============================================================
  * FUNÇÕES AUXILIARES DE TRATAMENTO DE COLUNAS E STRINGS
  * ============================================================ */
-
-// Normaliza texto para busca (remove acentos, espaços e deixa em minúsculo)
 function normalizarChave(str) {
     return String(str || "")
         .normalize("NFD")
@@ -66,7 +45,6 @@ function normalizarChave(str) {
         .replace(/[^a-z0-9]/g, "");
 }
 
-// Procura o valor de uma coluna independentemente de como foi escrita na planilha
 function extrairValorColuna(row, nomesPossiveis) {
     if (!row) return "";
     const chaves = Object.keys(row);
@@ -81,61 +59,15 @@ function extrairValorColuna(row, nomesPossiveis) {
     return "";
 }
 
-function nomeRegiao(sigla) {
-    if (!sigla) return 'Outros';
-    const chave = String(sigla).toUpperCase().trim();
-    return DEPARA_REGIOES[chave] || sigla;
+function formatarMoeda(valor) {
+    return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 /* ============================================================
- * TRATAMENTO DE DATAS
- * ============================================================ */
-function obterTimestampZerado(valorData) {
-    if (!valorData) return null;
-
-    let d = null;
-
-    // Se for número serial de data do Excel
-    if (typeof valorData === 'number') {
-        d = new Date(Math.round((valorData - 25569) * 86400 * 1000));
-    } else if (typeof valorData === 'string') {
-        const partes = valorData.split(/[-/]/);
-        if (partes.length === 3) {
-            if (partes[0].length === 4) {
-                // Formato YYYY-MM-DD
-                d = new Date(partes[0], partes[1] - 1, partes[2]);
-            } else {
-                // Formato DD/MM/YYYY
-                d = new Date(partes[2], partes[1] - 1, partes[0]);
-            }
-        } else {
-            d = new Date(valorData);
-        }
-    } else if (valorData instanceof Date) {
-        d = valorData;
-    }
-
-    if (!d || isNaN(d.getTime())) return null;
-
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-}
-
-function formatarData(timestamp) {
-    if (!timestamp || timestamp === 9999999999999) return "Sem Data";
-    const d = new Date(timestamp);
-    const dia = String(d.getDate()).padStart(2, '0');
-    const mes = String(d.getMonth() + 1).padStart(2, '0');
-    const ano = d.getFullYear();
-    return `${dia}/${mes}/${ano}`;
-}
-
-/* ============================================================
- * LEITURA DO ARQUIVO EXCEL / CSV
+ * LEITURA DO ARQUIVO EXCEL
  * ============================================================ */
 function processarArquivoExcel(event) {
     const file = event.target.files[0];
-    const statusBase = document.getElementById("statusBase");
     const statusIcon = document.getElementById("statusIcon");
     const statusMensagem = document.getElementById("statusMensagem");
     const statusDetalhes = document.getElementById("statusDetalhes");
@@ -152,8 +84,9 @@ function processarArquivoExcel(event) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: "array" });
 
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
+            // Busca a aba BASE_COTACOES ou pega a primeira se não existir
+            let sheetName = workbook.SheetNames.find(s => normalizarChave(s) === "basecotacoes") || workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
 
             dadosBrutos = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
@@ -162,8 +95,8 @@ function processarArquivoExcel(event) {
             }
 
             if (statusIcon) statusIcon.innerText = "🟢";
-            if (statusMensagem) statusMensagem.innerText = "Base carregada com sucesso!";
-            if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} registros importados.`;
+            if (statusMensagem) statusMensagem.innerText = "Base de Fretes Carregada!";
+            if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} linhas de cotação lidas.`;
 
             popularFiltrosSelect(dadosBrutos);
             processarEAtualizar();
@@ -184,34 +117,41 @@ function processarArquivoExcel(event) {
 }
 
 /* ============================================================
- * POPULAR SELECTS DE FILTROS DINAMICAMENTE
+ * POPULAR FILTROS SELECT DINAMICAMENTE
  * ============================================================ */
 function popularFiltrosSelect(dados) {
     const statusFilter = document.getElementById("statusFilter");
-    const regionFilter = document.getElementById("regionFilter");
-
-    if (!statusFilter || !regionFilter) return;
+    const transportadoraFilter = document.getElementById("transportadoraFilter");
+    const monthFilter = document.getElementById("monthFilter");
 
     const statusSet = new Set();
-    const regionSet = new Set();
+    const transpSet = new Set();
+    const mesSet = new Set();
 
     dados.forEach((row) => {
-        const st = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]);
-        const rg = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]);
+        const st = extrairValorColuna(row, ["Status"]);
+        const tr = extrairValorColuna(row, ["Transportadora"]);
+        const ms = extrairValorColuna(row, ["MÊS", "Mes"]);
 
         if (st) statusSet.add(st);
-        if (rg) regionSet.add(rg);
+        if (tr) transpSet.add(tr);
+        if (ms) mesSet.add(ms);
     });
 
-    statusFilter.innerHTML = '<option value="TODOS">Todos os Status</option>';
-    Array.from(statusSet).sort().forEach((st) => {
-        statusFilter.innerHTML += `<option value="${st}">${st}</option>`;
-    });
+    if (statusFilter) {
+        statusFilter.innerHTML = '<option value="TODOS">Todos os Status</option>';
+        Array.from(statusSet).sort().forEach(st => statusFilter.innerHTML += `<option value="${st}">${st}</option>`);
+    }
 
-    regionFilter.innerHTML = '<option value="TODAS">Todas as Regiões</option>';
-    Array.from(regionSet).sort().forEach((rg) => {
-        regionFilter.innerHTML += `<option value="${rg}">${nomeRegiao(rg)}</option>`;
-    });
+    if (transportadoraFilter) {
+        transportadoraFilter.innerHTML = '<option value="TODAS">Todas as Transportadoras</option>';
+        Array.from(transpSet).sort().forEach(tr => transportadoraFilter.innerHTML += `<option value="${tr}">${tr}</option>`);
+    }
+
+    if (monthFilter) {
+        monthFilter.innerHTML = '<option value="TODOS">Todos os Meses</option>';
+        Array.from(mesSet).sort().forEach(ms => monthFilter.innerHTML += `<option value="${ms}">${ms}</option>`);
+    }
 }
 
 /* ============================================================
@@ -221,25 +161,18 @@ function processarEAtualizar() {
     if (!dadosBrutos || dadosBrutos.length === 0) return;
 
     const statusSel = document.getElementById("statusFilter")?.value || "TODOS";
-    const regionSel = document.getElementById("regionFilter")?.value || "TODAS";
-    const startVal = document.getElementById("startDate")?.value;
-    const endVal = document.getElementById("endDate")?.value;
-
-    const startTimestamp = obterTimestampZerado(startVal);
-    const endTimestamp = obterTimestampZerado(endVal);
+    const transpSel = document.getElementById("transportadoraFilter")?.value || "TODAS";
+    const mesSel = document.getElementById("monthFilter")?.value || "TODOS";
 
     dadosFiltrados = dadosBrutos.filter((row) => {
-        const st = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]);
+        const st = extrairValorColuna(row, ["Status"]);
         if (statusSel !== "TODOS" && st !== statusSel) return false;
 
-        const rg = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]);
-        if (regionSel !== "TODAS" && rg !== regionSel) return false;
+        const tr = extrairValorColuna(row, ["Transportadora"]);
+        if (transpSel !== "TODAS" && tr !== transpSel) return false;
 
-        const rawData = extrairValorColuna(row, ["DATA", "DATE", "DATA AGENDAMENTO", "AGENDAMENTO", "DATA_AGENDAMENTO"]);
-        const dataTimestamp = obterTimestampZerado(rawData);
-
-        if (startTimestamp && (!dataTimestamp || dataTimestamp < startTimestamp)) return false;
-        if (endTimestamp && (!dataTimestamp || dataTimestamp > endTimestamp)) return false;
+        const ms = extrairValorColuna(row, ["MÊS", "Mes"]);
+        if (mesSel !== "TODOS" && ms !== mesSel) return false;
 
         return true;
     });
@@ -250,37 +183,89 @@ function processarEAtualizar() {
 }
 
 /* ============================================================
- * ATUALIZAÇÃO DOS KPIS
+ * ATUALIZAÇÃO DOS KPIS (DEDUPLICANDO SOLICITAÇÕES)
  * ============================================================ */
 function atualizarKPIs(dados) {
     const painelKPIs = document.getElementById("painelKPIs");
     if (!painelKPIs) return;
 
-    let total = dados.length;
-    let pendentes = 0;
-    let concluidos = 0;
+    const pedidosUnicosMap = new Map();
+    let totalCotacoesRecebidas = dados.length;
+    let valorTotalAprovado = 0;
+    let somaValoresCotacoes = 0;
 
     dados.forEach((row) => {
-        const st = normalizarChave(extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]));
-        if (st.includes("conclu") || st.includes("entreg") || st.includes("finaliz") || st.includes("ok")) {
-            concluidos++;
-        } else if (st.includes("pend") || st.includes("andament") || st.includes("aguard") || st.includes("abert")) {
-            pendentes++;
+        const idSolicitacao = extrairValorColuna(row, ["Solicitação", "Solicitacao", "PEDIDO"]);
+        const status = extrairValorColuna(row, ["Status"]);
+        const valorCotacao = parseFloat(extrairValorColuna(row, ["Valor Cotação", "Valor Cotacao"])) || 0;
+        const verba = parseFloat(extrairValorColuna(row, ["Verba"])) || 0;
+
+        somaValoresCotacoes += valorCotacao;
+
+        if (status.toUpperCase() === "APROVADO") {
+            valorTotalAprovado += valorCotacao;
+        }
+
+        // Agrupamento por ID de Solicitação único
+        if (idSolicitacao) {
+            if (!pedidosUnicosMap.has(idSolicitacao)) {
+                pedidosUnicosMap.set(idSolicitacao, {
+                    id: idSolicitacao,
+                    status: 'EM ANALISE',
+                    verba: verba,
+                    menorCotacao: valorCotacao
+                });
+            }
+
+            const ped = pedidosUnicosMap.get(idSolicitacao);
+            if (valorCotacao < ped.menorCotacao && valorCotacao > 0) {
+                ped.menorCotacao = valorCotacao;
+            }
+
+            if (status.toUpperCase() === "APROVADO") {
+                ped.status = 'APROVADO';
+            }
         }
     });
 
+    const totalPedidosGerados = pedidosUnicosMap.size;
+    let pedidosAprovadosCount = 0;
+    let economiaPotencial = 0;
+
+    pedidosUnicosMap.forEach((ped) => {
+        if (ped.status === 'APROVADO') pedidosAprovadosCount++;
+        if (ped.verba > ped.menorCotacao) {
+            economiaPotencial += (ped.verba - ped.menorCotacao);
+        }
+    });
+
+    const valorMedioCotacao = totalCotacoesRecebidas > 0 ? (somaValoresCotacoes / totalCotacoesRecebidas) : 0;
+    const taxaAprovacao = totalCotacoesRecebidas > 0 ? ((pedidosAprovadosCount / totalCotacoesRecebidas) * 100).toFixed(1) : 0;
+
     painelKPIs.innerHTML = `
         <div class="kpi-card">
-            <h4>Total de Pedidos</h4>
-            <span class="kpi-value">${total}</span>
+            <h4>Total de Solicitações</h4>
+            <span class="kpi-value">${totalPedidosGerados}</span>
         </div>
         <div class="kpi-card">
-            <h4>Pendentes</h4>
-            <span class="kpi-value">${pendentes}</span>
+            <h4>Cotações Recebidas</h4>
+            <span class="kpi-value">${totalCotacoesRecebidas}</span>
         </div>
         <div class="kpi-card">
-            <h4>Concluídos</h4>
-            <span class="kpi-value">${concluidos}</span>
+            <h4>Valor Médio / Cotação</h4>
+            <span class="kpi-value">${formatarMoeda(valorMedioCotacao)}</span>
+        </div>
+        <div class="kpi-card">
+            <h4>% Cotações Aprovadas</h4>
+            <span class="kpi-value">${taxaAprovacao}%</span>
+        </div>
+        <div class="kpi-card">
+            <h4>Valor Total Aprovado</h4>
+            <span class="kpi-value">${formatarMoeda(valorTotalAprovado)}</span>
+        </div>
+        <div class="kpi-card">
+            <h4>Economia Potencial</h4>
+            <span class="kpi-value">${formatarMoeda(economiaPotencial)}</span>
         </div>
     `;
 }
@@ -289,31 +274,36 @@ function atualizarKPIs(dados) {
  * ATUALIZAÇÃO DOS GRÁFICOS (CHART.JS)
  * ============================================================ */
 function atualizarGraficos(dados) {
-    const ctxRegiao = document.getElementById("chartRegiao")?.getContext("2d");
-    const ctxTipo = document.getElementById("chartTipo")?.getContext("2d");
+    const ctxTransp = document.getElementById("chartRegiao")?.getContext("2d"); // Usando id existente
+    const ctxStatus = document.getElementById("chartTipo")?.getContext("2d");
 
-    const regiaoCounts = {};
-    const tipoCounts = {};
+    const transpMedias = {};
+    const statusCounts = {};
 
     dados.forEach((row) => {
-        const rgBruta = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]) || "N/A";
-        const rg = nomeRegiao(rgBruta);
+        const tr = extrairValorColuna(row, ["Transportadora"]) || "Outras";
+        const st = extrairValorColuna(row, ["Status"]) || "Indefinido";
+        const val = parseFloat(extrairValorColuna(row, ["Valor Cotação", "Valor Cotacao"])) || 0;
 
-        const tp = extrairValorColuna(row, ["TIPO", "OPERACAO", "OPERAÇÃO", "TIPO OPERACAO", "SERVICO", "SERVIÇO"]) || "Outros";
+        if (!transpMedias[tr]) transpMedias[tr] = { soma: 0, qtd: 0 };
+        transpMedias[tr].soma += val;
+        transpMedias[tr].qtd += 1;
 
-        regiaoCounts[rg] = (regiaoCounts[rg] || 0) + 1;
-        tipoCounts[tp] = (tipoCounts[tp] || 0) + 1;
+        statusCounts[st] = (statusCounts[st] || 0) + 1;
     });
 
-    if (ctxRegiao) {
-        if (graficoRegiaoInstance) graficoRegiaoInstance.destroy();
-        graficoRegiaoInstance = new Chart(ctxRegiao, {
+    const transpLabels = Object.keys(transpMedias);
+    const transpValores = transpLabels.map(tr => (transpMedias[tr].soma / transpMedias[tr].qtd).toFixed(2));
+
+    if (ctxTransp) {
+        if (graficoTransportadoraInstance) graficoTransportadoraInstance.destroy();
+        graficoTransportadoraInstance = new Chart(ctxTransp, {
             type: "bar",
             data: {
-                labels: Object.keys(regiaoCounts),
+                labels: transpLabels,
                 datasets: [{
-                    label: "Volume por Região",
-                    data: Object.values(regiaoCounts),
+                    label: "Valor Médio da Cotação (R$)",
+                    data: transpValores,
                     backgroundColor: "#2563eb"
                 }]
             },
@@ -321,15 +311,15 @@ function atualizarGraficos(dados) {
         });
     }
 
-    if (ctxTipo) {
-        if (graficoTipoInstance) graficoTipoInstance.destroy();
-        graficoTipoInstance = new Chart(ctxTipo, {
+    if (ctxStatus) {
+        if (graficoStatusInstance) graficoStatusInstance.destroy();
+        graficoStatusInstance = new Chart(ctxStatus, {
             type: "doughnut",
             data: {
-                labels: Object.keys(tipoCounts),
+                labels: Object.keys(statusCounts),
                 datasets: [{
-                    data: Object.values(tipoCounts),
-                    backgroundColor: ["#2563eb", "#16a34a", "#dc2626", "#eab308", "#9333ea", "#64748b"]
+                    data: Object.values(statusCounts),
+                    backgroundColor: ["#eab308", "#dc2626", "#16a34a", "#2563eb"]
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false }
@@ -338,57 +328,35 @@ function atualizarGraficos(dados) {
 }
 
 /* ============================================================
- * ATUALIZAÇÃO DA TABELA DE AGENDA
+ * ATUALIZAÇÃO DA TABELA DE SOLICITAÇÕES
  * ============================================================ */
 function atualizarTabelaAgenda(dados) {
     const tbody = document.querySelector("#tabelaAgenda tbody");
     if (!tbody) return;
 
-    const grupos = {};
-
-    dados.forEach((row) => {
-        const rawData = extrairValorColuna(row, ["DATA", "DATE", "DATA AGENDAMENTO", "AGENDAMENTO", "DATA_AGENDAMENTO"]);
-        const ts = obterTimestampZerado(rawData) || 9999999999999;
-        const regiao = extrairValorColuna(row, ["REGIAO", "REGIAÕ", "UF", "ESTADO", "REGIONAL"]) || "N/A";
-        const status = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATE", "SITUAÇÃO"]) || "Indefinido";
-
-        const chave = `${ts}_${regiao}_${status}`;
-
-        if (!grupos[chave]) {
-            grupos[chave] = {
-                timestamp: ts,
-                data: formatarData(ts),
-                regiao: regiao,
-                status: status,
-                quantidade: 0
-            };
-        }
-
-        grupos[chave].quantidade++;
-    });
-
-    const gruposOrdenados = Object.values(grupos).sort((a, b) => {
-        if (a.timestamp !== b.timestamp) {
-            return a.timestamp - b.timestamp;
-        }
-        return a.regiao.localeCompare(b.regiao);
-    });
-
     tbody.innerHTML = "";
 
-    if (gruposOrdenados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
+    if (dados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhuma cotação encontrada.</td></tr>`;
         return;
     }
 
-    gruposOrdenados.forEach((grupo) => {
+    dados.forEach((row) => {
         const tr = document.createElement("tr");
+        const idPed = extrairValorColuna(row, ["Solicitação", "Solicitacao"]);
+        const origDest = `${extrairValorColuna(row, ["Origem"])} ➔ ${extrairValorColuna(row, ["Destino"])}`;
+        const transp = extrairValorColuna(row, ["Transportadora"]);
+        const valor = formatarMoeda(extrairValorColuna(row, ["Valor Cotação", "Valor Cotacao"]));
+        const verba = formatarMoeda(extrairValorColuna(row, ["Verba"]));
+        const status = extrairValorColuna(row, ["Status"]);
 
         tr.innerHTML = `
-            <td>${grupo.data}</td>
-            <td>${nomeRegiao(grupo.regiao)}</td>
-            <td><span class="badge status-${normalizarChave(grupo.status)}">${grupo.status}</span></td>
-            <td><strong>${grupo.quantidade}</strong></td>
+            <td><strong>#${idPed}</strong></td>
+            <td>${origDest}</td>
+            <td>${transp}</td>
+            <td>${verba}</td>
+            <td>${valor}</td>
+            <td><span class="badge status-${normalizarChave(status)}">${status}</span></td>
         `;
 
         tbody.appendChild(tr);
@@ -400,14 +368,12 @@ function atualizarTabelaAgenda(dados) {
  * ============================================================ */
 function limparFiltros() {
     const statusFilter = document.getElementById("statusFilter");
-    const regionFilter = document.getElementById("regionFilter");
-    const startDate = document.getElementById("startDate");
-    const endDate = document.getElementById("endDate");
+    const transportadoraFilter = document.getElementById("transportadoraFilter");
+    const monthFilter = document.getElementById("monthFilter");
 
     if (statusFilter) statusFilter.value = "TODOS";
-    if (regionFilter) regionFilter.value = "TODAS";
-    if (startDate) startDate.value = "";
-    if (endDate) endDate.value = "";
+    if (transportadoraFilter) transportadoraFilter.value = "TODAS";
+    if (monthFilter) monthFilter.value = "TODOS";
 
     processarEAtualizar();
 }
