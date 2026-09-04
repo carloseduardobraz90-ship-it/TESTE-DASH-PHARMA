@@ -3,8 +3,8 @@
  * ============================================================ */
 let dadosBrutos = [];
 let dadosFiltrados = [];
-let graficoTransportadoraInstance = null;
 let graficoStatusInstance = null;
+let graficoCategoriaInstance = null;
 
 /* ============================================================
  * EVENTOS INICIAIS DA PÁGINA
@@ -14,11 +14,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnClear = document.getElementById("btnClear");
     const excelFileInput = document.getElementById("excelFile");
     const statusFilter = document.getElementById("statusFilter");
-    const transportadoraFilter = document.getElementById("transportadoraFilter");
-    const monthFilter = document.getElementById("monthFilter");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const buyerFilter = document.getElementById("buyerFilter");
 
     if (excelFileInput) {
-        excelFileInput.addEventListener("change", processarArquivoExcel);
+        excelFileInput.addEventListener("change", processarArquivo);
     }
 
     if (btnUpdate) {
@@ -30,12 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (statusFilter) statusFilter.addEventListener("change", processarEAtualizar);
-    if (transportadoraFilter) transportadoraFilter.addEventListener("change", processarEAtualizar);
-    if (monthFilter) monthFilter.addEventListener("change", processarEAtualizar);
+    if (categoryFilter) categoryFilter.addEventListener("change", processarEAtualizar);
+    if (buyerFilter) buyerFilter.addEventListener("change", processarEAtualizar);
 });
 
 /* ============================================================
- * FUNÇÕES AUXILIARES DE TRATAMENTO DE COLUNAS E STRINGS
+ * FUNÇÕES AUXILIARES E CONVERSÃO DE VALORES
  * ============================================================ */
 function normalizarChave(str) {
     return String(str || "")
@@ -59,14 +59,27 @@ function extrairValorColuna(row, nomesPossiveis) {
     return "";
 }
 
-function formatarMoeda(valor) {
+function converterMoedaParaNumero(valor) {
+    if (!valor) return 0;
+    if (typeof valor === 'number') return valor;
+
+    // Trata formato BRL ("23.969,74" -> 23969.74)
+    const limpo = String(valor)
+        .replace(/\./g, '')
+        .replace(',', '.')
+        .replace(/[^0-9.-]/g, '');
+
+    return parseFloat(limpo) || 0;
+}
+
+function formatarMoedaBRL(valor) {
     return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 /* ============================================================
- * LEITURA DO ARQUIVO EXCEL
+ * LEITURA DO ARQUIVO CSV / EXCEL
  * ============================================================ */
-function processarArquivoExcel(event) {
+function processarArquivo(event) {
     const file = event.target.files[0];
     const statusIcon = document.getElementById("statusIcon");
     const statusMensagem = document.getElementById("statusMensagem");
@@ -74,41 +87,43 @@ function processarArquivoExcel(event) {
     const painelErro = document.getElementById("painelErro");
 
     if (!file) return;
-
     if (painelErro) painelErro.style.display = "none";
 
     const reader = new FileReader();
 
     reader.onload = function (e) {
         try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array" });
+            const buffer = e.target.result;
 
-            // Busca a aba BASE_COTACOES ou pega a primeira se não existir
-            let sheetName = workbook.SheetNames.find(s => normalizarChave(s) === "basecotacoes") || workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
+            if (file.name.endsWith('.csv')) {
+                const text = new TextDecoder('utf-8').decode(buffer);
+                dadosBrutos = converterCSVParaArray(text);
+            } else {
+                const data = new Uint8Array(buffer);
+                const workbook = XLSX.read(data, { type: "array" });
+                const firstSheet = workbook.SheetNames[0];
+                dadosBrutos = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+            }
 
-            dadosBrutos = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-            if (dadosBrutos.length === 0) {
-                throw new Error("A planilha selecionada está vazia.");
+            if (!dadosBrutos || dadosBrutos.length === 0) {
+                throw new Error("A planilha/CSV selecionado está vazio.");
             }
 
             if (statusIcon) statusIcon.innerText = "🟢";
-            if (statusMensagem) statusMensagem.innerText = "Base de Fretes Carregada!";
-            if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} linhas de cotação lidas.`;
+            if (statusMensagem) statusMensagem.innerText = "Base de dados carregada!";
+            if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} linhas de itens importadas.`;
 
             popularFiltrosSelect(dadosBrutos);
             processarEAtualizar();
 
         } catch (error) {
             if (statusIcon) statusIcon.innerText = "🔴";
-            if (statusMensagem) statusMensagem.innerText = "Erro ao carregar a base";
-            if (statusDetalhes) statusDetalhes.innerText = "Não foi possível ler o arquivo enviado.";
+            if (statusMensagem) statusMensagem.innerText = "Erro ao carregar o arquivo";
+            if (statusDetalhes) statusDetalhes.innerText = "Verifique o formato e tente novamente.";
 
             if (painelErro) {
                 painelErro.style.display = "block";
-                document.getElementById("erroDetalhes").innerText = error.message || "Erro desconhecido ao processar planilha.";
+                document.getElementById("erroDetalhes").innerText = error.message || "Erro desconhecido ao ler o arquivo.";
             }
         }
     };
@@ -116,26 +131,52 @@ function processarArquivoExcel(event) {
     reader.readAsArrayBuffer(file);
 }
 
+// Parser de CSV com suporte a delimitador ';' e valores entre aspas
+function converterCSVParaArray(strData, strDelimiter = ";") {
+    const lines = strData.split(/\r\n|\n/);
+    if (lines.length === 0) return [];
+
+    const headers = lines[0].split(strDelimiter).map(h => h.replace(/^["\uFEFF]+|["\s]+$/g, ''));
+    const result = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+
+        const row = {};
+        const currentline = lines[i].split(strDelimiter);
+
+        headers.forEach((header, index) => {
+            let val = currentline[index] || "";
+            val = val.replace(/^["\s]+|["\s]+$/g, '');
+            row[header] = val;
+        });
+
+        result.push(row);
+    }
+
+    return result;
+}
+
 /* ============================================================
  * POPULAR FILTROS SELECT DINAMICAMENTE
  * ============================================================ */
 function popularFiltrosSelect(dados) {
     const statusFilter = document.getElementById("statusFilter");
-    const transportadoraFilter = document.getElementById("transportadoraFilter");
-    const monthFilter = document.getElementById("monthFilter");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const buyerFilter = document.getElementById("buyerFilter");
 
     const statusSet = new Set();
-    const transpSet = new Set();
-    const mesSet = new Set();
+    const catSet = new Set();
+    const buyerSet = new Set();
 
     dados.forEach((row) => {
-        const st = extrairValorColuna(row, ["Status"]);
-        const tr = extrairValorColuna(row, ["Transportadora"]);
-        const ms = extrairValorColuna(row, ["MÊS", "Mes"]);
+        const st = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
+        const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO"]);
+        const buyer = extrairValorColuna(row, ["COMPRADOR"]);
 
         if (st) statusSet.add(st);
-        if (tr) transpSet.add(tr);
-        if (ms) mesSet.add(ms);
+        if (cat) catSet.add(cat);
+        if (buyer) buyerSet.add(buyer);
     });
 
     if (statusFilter) {
@@ -143,14 +184,14 @@ function popularFiltrosSelect(dados) {
         Array.from(statusSet).sort().forEach(st => statusFilter.innerHTML += `<option value="${st}">${st}</option>`);
     }
 
-    if (transportadoraFilter) {
-        transportadoraFilter.innerHTML = '<option value="TODAS">Todas as Transportadoras</option>';
-        Array.from(transpSet).sort().forEach(tr => transportadoraFilter.innerHTML += `<option value="${tr}">${tr}</option>`);
+    if (categoryFilter) {
+        categoryFilter.innerHTML = '<option value="TODAS">Todas as Categorias</option>';
+        Array.from(catSet).sort().forEach(cat => categoryFilter.innerHTML += `<option value="${cat}">${cat}</option>`);
     }
 
-    if (monthFilter) {
-        monthFilter.innerHTML = '<option value="TODOS">Todos os Meses</option>';
-        Array.from(mesSet).sort().forEach(ms => monthFilter.innerHTML += `<option value="${ms}">${ms}</option>`);
+    if (buyerFilter) {
+        buyerFilter.innerHTML = '<option value="TODOS">Todos os Compradores</option>';
+        Array.from(buyerSet).sort().forEach(b => buyerFilter.innerHTML += `<option value="${b}">${b}</option>`);
     }
 }
 
@@ -161,111 +202,78 @@ function processarEAtualizar() {
     if (!dadosBrutos || dadosBrutos.length === 0) return;
 
     const statusSel = document.getElementById("statusFilter")?.value || "TODOS";
-    const transpSel = document.getElementById("transportadoraFilter")?.value || "TODAS";
-    const mesSel = document.getElementById("monthFilter")?.value || "TODOS";
+    const catSel = document.getElementById("categoryFilter")?.value || "TODAS";
+    const buyerSel = document.getElementById("buyerFilter")?.value || "TODOS";
 
     dadosFiltrados = dadosBrutos.filter((row) => {
-        const st = extrairValorColuna(row, ["Status"]);
+        const st = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
         if (statusSel !== "TODOS" && st !== statusSel) return false;
 
-        const tr = extrairValorColuna(row, ["Transportadora"]);
-        if (transpSel !== "TODAS" && tr !== transpSel) return false;
+        const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO"]);
+        if (catSel !== "TODAS" && cat !== catSel) return false;
 
-        const ms = extrairValorColuna(row, ["MÊS", "Mes"]);
-        if (mesSel !== "TODOS" && ms !== mesSel) return false;
+        const buyer = extrairValorColuna(row, ["COMPRADOR"]);
+        if (buyerSel !== "TODOS" && buyer !== buyerSel) return false;
 
         return true;
     });
 
     atualizarKPIs(dadosFiltrados);
     atualizarGraficos(dadosFiltrados);
-    atualizarTabelaAgenda(dadosFiltrados);
+    atualizarTabela(dadosFiltrados);
 }
 
 /* ============================================================
- * ATUALIZAÇÃO DOS KPIS (DEDUPLICANDO SOLICITAÇÕES)
+ * ATUALIZAÇÃO DOS KPIS (DEDUPLICANDO PEDIDOS)
  * ============================================================ */
 function atualizarKPIs(dados) {
     const painelKPIs = document.getElementById("painelKPIs");
     if (!painelKPIs) return;
 
-    const pedidosUnicosMap = new Map();
-    let totalCotacoesRecebidas = dados.length;
-    let valorTotalAprovado = 0;
-    let somaValoresCotacoes = 0;
+    const pedidosUnicosSet = new Set();
+    let totalItens = dados.length;
+    let valorTotalGeral = 0;
+    let pedidosFinalizadosSet = new Set();
 
     dados.forEach((row) => {
-        const idSolicitacao = extrairValorColuna(row, ["Solicitação", "Solicitacao", "PEDIDO"]);
-        const status = extrairValorColuna(row, ["Status"]);
-        const valorCotacao = parseFloat(extrairValorColuna(row, ["Valor Cotação", "Valor Cotacao"])) || 0;
-        const verba = parseFloat(extrairValorColuna(row, ["Verba"])) || 0;
+        const numPedido = extrairValorColuna(row, ["PEDIDO_", "PEDIDO", "SOLICITACAO"]);
+        const status = extrairValorColuna(row, ["STATUS"]);
+        const valorItem = converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL", "VLRTOTAL", "VALOR TOTAL"]));
 
-        somaValoresCotacoes += valorCotacao;
+        valorTotalGeral += valorItem;
 
-        if (status.toUpperCase() === "APROVADO") {
-            valorTotalAprovado += valorCotacao;
-        }
-
-        // Agrupamento por ID de Solicitação único
-        if (idSolicitacao) {
-            if (!pedidosUnicosMap.has(idSolicitacao)) {
-                pedidosUnicosMap.set(idSolicitacao, {
-                    id: idSolicitacao,
-                    status: 'EM ANALISE',
-                    verba: verba,
-                    menorCotacao: valorCotacao
-                });
-            }
-
-            const ped = pedidosUnicosMap.get(idSolicitacao);
-            if (valorCotacao < ped.menorCotacao && valorCotacao > 0) {
-                ped.menorCotacao = valorCotacao;
-            }
-
-            if (status.toUpperCase() === "APROVADO") {
-                ped.status = 'APROVADO';
+        if (numPedido) {
+            pedidosUnicosSet.add(numPedido);
+            if (status.toUpperCase().includes("FINALIZADO") || status.toUpperCase().includes("ENTREGUE")) {
+                pedidosFinalizadosSet.add(numPedido);
             }
         }
     });
 
-    const totalPedidosGerados = pedidosUnicosMap.size;
-    let pedidosAprovadosCount = 0;
-    let economiaPotencial = 0;
-
-    pedidosUnicosMap.forEach((ped) => {
-        if (ped.status === 'APROVADO') pedidosAprovadosCount++;
-        if (ped.verba > ped.menorCotacao) {
-            economiaPotencial += (ped.verba - ped.menorCotacao);
-        }
-    });
-
-    const valorMedioCotacao = totalCotacoesRecebidas > 0 ? (somaValoresCotacoes / totalCotacoesRecebidas) : 0;
-    const taxaAprovacao = totalCotacoesRecebidas > 0 ? ((pedidosAprovadosCount / totalCotacoesRecebidas) * 100).toFixed(1) : 0;
+    const totalPedidosUnicos = pedidosUnicosSet.size;
+    const totalFinalizados = pedidosFinalizadosSet.size;
+    const ticketMedioPorPedido = totalPedidosUnicos > 0 ? (valorTotalGeral / totalPedidosUnicos) : 0;
 
     painelKPIs.innerHTML = `
         <div class="kpi-card">
-            <h4>Total de Solicitações</h4>
-            <span class="kpi-value">${totalPedidosGerados}</span>
+            <h4>Pedidos Gerados (Únicos)</h4>
+            <span class="kpi-value">${totalPedidosUnicos.toLocaleString('pt-BR')}</span>
         </div>
         <div class="kpi-card">
-            <h4>Cotações Recebidas</h4>
-            <span class="kpi-value">${totalCotacoesRecebidas}</span>
+            <h4>Total de Itens / Linhas</h4>
+            <span class="kpi-value">${totalItens.toLocaleString('pt-BR')}</span>
         </div>
         <div class="kpi-card">
-            <h4>Valor Médio / Cotação</h4>
-            <span class="kpi-value">${formatarMoeda(valorMedioCotacao)}</span>
+            <h4>Pedidos Concluídos</h4>
+            <span class="kpi-value">${totalFinalizados.toLocaleString('pt-BR')}</span>
         </div>
         <div class="kpi-card">
-            <h4>% Cotações Aprovadas</h4>
-            <span class="kpi-value">${taxaAprovacao}%</span>
+            <h4>Valor Total Acumulado</h4>
+            <span class="kpi-value">${formatarMoedaBRL(valorTotalGeral)}</span>
         </div>
         <div class="kpi-card">
-            <h4>Valor Total Aprovado</h4>
-            <span class="kpi-value">${formatarMoeda(valorTotalAprovado)}</span>
-        </div>
-        <div class="kpi-card">
-            <h4>Economia Potencial</h4>
-            <span class="kpi-value">${formatarMoeda(economiaPotencial)}</span>
+            <h4>Ticket Médio por Pedido</h4>
+            <span class="kpi-value">${formatarMoedaBRL(ticketMedioPorPedido)}</span>
         </div>
     `;
 }
@@ -274,36 +282,29 @@ function atualizarKPIs(dados) {
  * ATUALIZAÇÃO DOS GRÁFICOS (CHART.JS)
  * ============================================================ */
 function atualizarGraficos(dados) {
-    const ctxTransp = document.getElementById("chartRegiao")?.getContext("2d"); // Usando id existente
-    const ctxStatus = document.getElementById("chartTipo")?.getContext("2d");
+    const ctxStatus = document.getElementById("chartRegiao")?.getContext("2d");
+    const ctxCategoria = document.getElementById("chartTipo")?.getContext("2d");
 
-    const transpMedias = {};
     const statusCounts = {};
+    const catCounts = {};
 
     dados.forEach((row) => {
-        const tr = extrairValorColuna(row, ["Transportadora"]) || "Outras";
-        const st = extrairValorColuna(row, ["Status"]) || "Indefinido";
-        const val = parseFloat(extrairValorColuna(row, ["Valor Cotação", "Valor Cotacao"])) || 0;
-
-        if (!transpMedias[tr]) transpMedias[tr] = { soma: 0, qtd: 0 };
-        transpMedias[tr].soma += val;
-        transpMedias[tr].qtd += 1;
+        const st = extrairValorColuna(row, ["STATUS"]) || "Indefinido";
+        const cat = extrairValorColuna(row, ["CATEGORIA"]) || "Outros";
 
         statusCounts[st] = (statusCounts[st] || 0) + 1;
+        catCounts[cat] = (catCounts[cat] || 0) + 1;
     });
 
-    const transpLabels = Object.keys(transpMedias);
-    const transpValores = transpLabels.map(tr => (transpMedias[tr].soma / transpMedias[tr].qtd).toFixed(2));
-
-    if (ctxTransp) {
-        if (graficoTransportadoraInstance) graficoTransportadoraInstance.destroy();
-        graficoTransportadoraInstance = new Chart(ctxTransp, {
+    if (ctxStatus) {
+        if (graficoStatusInstance) graficoStatusInstance.destroy();
+        graficoStatusInstance = new Chart(ctxStatus, {
             type: "bar",
             data: {
-                labels: transpLabels,
+                labels: Object.keys(statusCounts),
                 datasets: [{
-                    label: "Valor Médio da Cotação (R$)",
-                    data: transpValores,
+                    label: "Quantidade de Itens por Status",
+                    data: Object.values(statusCounts),
                     backgroundColor: "#2563eb"
                 }]
             },
@@ -311,15 +312,15 @@ function atualizarGraficos(dados) {
         });
     }
 
-    if (ctxStatus) {
-        if (graficoStatusInstance) graficoStatusInstance.destroy();
-        graficoStatusInstance = new Chart(ctxStatus, {
+    if (ctxCategoria) {
+        if (graficoCategoriaInstance) graficoCategoriaInstance.destroy();
+        graficoCategoriaInstance = new Chart(ctxCategoria, {
             type: "doughnut",
             data: {
-                labels: Object.keys(statusCounts),
+                labels: Object.keys(catCounts),
                 datasets: [{
-                    data: Object.values(statusCounts),
-                    backgroundColor: ["#eab308", "#dc2626", "#16a34a", "#2563eb"]
+                    data: Object.values(catCounts),
+                    backgroundColor: ["#16a34a", "#2563eb", "#eab308", "#dc2626", "#9333ea"]
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false }
@@ -328,33 +329,35 @@ function atualizarGraficos(dados) {
 }
 
 /* ============================================================
- * ATUALIZAÇÃO DA TABELA DE SOLICITAÇÕES
+ * ATUALIZAÇÃO DA TABELA DE DADOS
  * ============================================================ */
-function atualizarTabelaAgenda(dados) {
+function atualizarTabela(dados) {
     const tbody = document.querySelector("#tabelaAgenda tbody");
     if (!tbody) return;
 
     tbody.innerHTML = "";
 
     if (dados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhuma cotação encontrada.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhum registro encontrado.</td></tr>`;
         return;
     }
 
-    dados.forEach((row) => {
+    // Exibe os primeiros 100 registros para otimizar renderização DOM
+    const limiteExibicao = dados.slice(0, 100);
+
+    limiteExibicao.forEach((row) => {
         const tr = document.createElement("tr");
-        const idPed = extrairValorColuna(row, ["Solicitação", "Solicitacao"]);
-        const origDest = `${extrairValorColuna(row, ["Origem"])} ➔ ${extrairValorColuna(row, ["Destino"])}`;
-        const transp = extrairValorColuna(row, ["Transportadora"]);
-        const valor = formatarMoeda(extrairValorColuna(row, ["Valor Cotação", "Valor Cotacao"]));
-        const verba = formatarMoeda(extrairValorColuna(row, ["Verba"]));
-        const status = extrairValorColuna(row, ["Status"]);
+        const numPedido = extrairValorColuna(row, ["PEDIDO_"]);
+        const item = extrairValorColuna(row, ["ITEM_"]);
+        const fornecedor = extrairValorColuna(row, ["NOME", "FORNECEDOR"]);
+        const categoria = extrairValorColuna(row, ["CATEGORIA"]);
+        const valor = formatarMoedaBRL(converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL"])));
+        const status = extrairValorColuna(row, ["STATUS"]);
 
         tr.innerHTML = `
-            <td><strong>#${idPed}</strong></td>
-            <td>${origDest}</td>
-            <td>${transp}</td>
-            <td>${verba}</td>
+            <td><strong>#${numPedido}</strong> (${item})</td>
+            <td>${fornecedor}</td>
+            <td>${categoria}</td>
             <td>${valor}</td>
             <td><span class="badge status-${normalizarChave(status)}">${status}</span></td>
         `;
@@ -368,12 +371,12 @@ function atualizarTabelaAgenda(dados) {
  * ============================================================ */
 function limparFiltros() {
     const statusFilter = document.getElementById("statusFilter");
-    const transportadoraFilter = document.getElementById("transportadoraFilter");
-    const monthFilter = document.getElementById("monthFilter");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const buyerFilter = document.getElementById("buyerFilter");
 
     if (statusFilter) statusFilter.value = "TODOS";
-    if (transportadoraFilter) transportadoraFilter.value = "TODAS";
-    if (monthFilter) monthFilter.value = "TODOS";
+    if (categoryFilter) categoryFilter.value = "TODAS";
+    if (buyerFilter) buyerFilter.value = "TODOS";
 
     processarEAtualizar();
-}
+} ATT5
