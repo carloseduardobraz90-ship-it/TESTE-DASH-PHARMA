@@ -2,341 +2,168 @@
 <html lang="pt-BR">
 
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Dashboard Operacional</title>
 
     <!-- CSS -->
     <link rel="stylesheet" href="style.css">
 
-    <!-- SheetJS -->
+    <!-- SheetJS (Leitura de Excel) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- DataLabels -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-
     <!-- JavaScript -->
     <script src="script.js" defer></script>
-
 </head>
 
-
 <body>
-
 
     <!-- =====================================================
          CABEÇALHO
          ===================================================== -->
-
     <header class="dashboard-header">
-
         <h1>Dashboard Operacional</h1>
-
         <p class="subtitle">
             Análise de pedidos, operações, regiões e agenda futura.
         </p>
-
     </header>
 
-
-
     <!-- =====================================================
-         CONTROLES
+         CONTROLES E FILTROS
          ===================================================== -->
-
     <section class="controls-card">
 
-
         <!-- ARQUIVO -->
-
         <div class="control-group">
-
-            <label for="excelFile">
-                Arquivo Base (.xlsx / .xls / .csv)
-            </label>
-
+            <label for="excelFile">Arquivo Base (.xlsx / .csv)</label>
             <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
-
         </div>
 
-
-
         <!-- BOTÃO ATUALIZAR -->
-
         <div class="control-group">
-
-            <label>
-                Atualização
-            </label>
-
+            <label>Atualização</label>
             <button type="button" class="btn-update" id="btnUpdate">
                 🔄 Atualizar Dashboard
             </button>
-
         </div>
-
-
 
         <!-- STATUS -->
-
         <div class="control-group">
-
-            <label for="statusFilter">
-                Status
-            </label>
-
+            <label for="statusFilter">Status</label>
             <select id="statusFilter">
-
-                <option value="TODOS">
-                    Todos os Status
-                </option>
-
+                <option value="TODOS">Todos os Status</option>
             </select>
-
         </div>
-
-
 
         <!-- REGIÃO -->
-
         <div class="control-group">
-
-            <label for="regionFilter">
-                Região
-            </label>
-
+            <label for="regionFilter">Região</label>
             <select id="regionFilter">
-
-                <option value="TODAS">
-                    Todas as Regiões
-                </option>
-
+                <option value="TODAS">Todas as Regiões</option>
             </select>
-
         </div>
-
-
 
         <!-- DATA INICIAL -->
-
         <div class="control-group">
-
-            <label for="startDate">
-                Data Inicial
-            </label>
-
+            <label for="startDate">Data Inicial</label>
             <input type="date" id="startDate">
-
         </div>
-
-
 
         <!-- DATA FINAL -->
-
         <div class="control-group">
-
-            <label for="endDate">
-                Data Final
-            </label>
-
+            <label for="endDate">Data Final</label>
             <input type="date" id="endDate">
-
         </div>
 
-
-
         <!-- LIMPAR -->
-
         <div class="control-group">
-
-            <label>
-                Filtros
-            </label>
-
+            <label>Filtros</label>
             <button type="button" class="btn-clear" id="btnClear">
                 Limpar Filtros
             </button>
-
         </div>
 
     </section>
-
-
 
     <!-- =====================================================
          STATUS DA BASE
          ===================================================== -->
-
     <section id="statusBase" class="status-base">
-
         <div class="status-base-title">
-
-            <span id="statusIcon">
-                ⚪
-            </span>
-
-            <strong id="statusMensagem">
-                Nenhuma base carregada
-            </strong>
-
+            <span id="statusIcon">⚪</span>
+            <strong id="statusMensagem">Nenhuma base carregada</strong>
         </div>
-
-
         <div id="statusDetalhes" class="status-detalhes">
-
-            Selecione um arquivo e clique em
-            "Atualizar Dashboard".
-
+            Selecione um arquivo Excel/CSV acima e clique em "Atualizar Dashboard".
         </div>
-
     </section>
-
-
 
     <!-- =====================================================
          PAINEL DE ERRO
          ===================================================== -->
-
     <section id="painelErro" class="painel-erro" style="display:none;">
-
-        <div class="erro-titulo">
-
-            ❌ Erro ao processar a base
-
-        </div>
-
-
+        <div class="erro-titulo">❌ Erro ao processar a base</div>
         <div id="erroDetalhes"></div>
-
     </section>
-
-
 
     <!-- =====================================================
          KPIS
          ===================================================== -->
-
     <section id="painelKPIs">
-
-        <!-- Preenchido pelo JavaScript -->
-
+        <!-- Preenchido dinamicamente pelo JavaScript -->
     </section>
-
-
-
-    <!-- =====================================================
-         PAINEL REGIONAL
-         ===================================================== -->
-
-    <section id="painelRegioes">
-
-        <!-- Preenchido pelo JavaScript -->
-
-    </section>
-
-
 
     <!-- =====================================================
          GRÁFICOS
          ===================================================== -->
-
     <main class="grid-container">
 
-
-        <!-- REGIÃO -->
-
+        <!-- GRÁFICO POR REGIÃO -->
         <section class="card">
-
-            <h3>
-                Volume de Pedidos por Região
-            </h3>
-
+            <h3>Volume de Pedidos por Região</h3>
             <div class="chart-box">
-
                 <canvas id="chartRegiao"></canvas>
-
             </div>
-
         </section>
 
-
-
-        <!-- TIPO -->
-
+        <!-- GRÁFICO POR TIPO -->
         <section class="card">
-
-            <h3>
-                Operações por Tipo
-            </h3>
-
+            <h3>Operações por Tipo</h3>
             <div class="chart-box">
-
                 <canvas id="chartTipo"></canvas>
-
             </div>
-
         </section>
 
     </main>
 
-
-
     <!-- =====================================================
-         AGENDA
+         AGENDA / TABELA
          ===================================================== -->
-
     <section class="card" id="cardTabelaAgenda">
-
-        <h3>
-            Agenda de Coletas / Entregas
-        </h3>
-
+        <h3>Agenda de Coletas / Entregas</h3>
         <p class="table-help">
-
-            Clique na quantidade de pedidos para
-            visualizar os pedidos e fornecedores.
-
+            Resumo dos agendamentos filtrados por data, região e status.
         </p>
 
-
         <div class="table-responsive">
-
             <table id="tabelaAgenda">
-
                 <thead>
-
                     <tr>
-
                         <th>Data</th>
-
                         <th>Região</th>
-
                         <th>Status</th>
-
                         <th>Pedidos</th>
-
                     </tr>
-
                 </thead>
-
-
                 <tbody>
-
-                    <!-- JavaScript -->
-
+                    <!-- Preenchido dinamicamente pelo JavaScript -->
                 </tbody>
-
             </table>
-
         </div>
-
     </section>
-
 
 </body>
 

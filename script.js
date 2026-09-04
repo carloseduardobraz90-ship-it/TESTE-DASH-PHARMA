@@ -1,31 +1,33 @@
 /* ============================================================
- * DASHBOARD OPERACIONAL & LOGÍSTICO - SCRIPT COMPLETO
+ * DASHBOARD OPERACIONAL & LOGÍSTICO - SCRIPT CORRIGIDO
  * ============================================================ */
 
 // Estado Global da Aplicação
 let dadosBrutos = [];
 let dadosFiltrados = [];
-let graficoStatusInstance = null;
 let graficoRegiaoInstance = null;
+let graficoTipoInstance = null;
 
 /* ============================================================
  * INICIALIZAÇÃO E EVENTOS
  * ============================================================ */
 
 document.addEventListener("DOMContentLoaded", function () {
-    const fileInput = document.getElementById("fileInput");
+    const excelFile = document.getElementById("excelFile");
+    const btnUpdate = document.getElementById("btnUpdate");
     const statusFilter = document.getElementById("statusFilter");
     const regionFilter = document.getElementById("regionFilter");
     const startDate = document.getElementById("startDate");
     const endDate = document.getElementById("endDate");
-    const btnLimpar = document.getElementById("btnLimpar");
+    const btnClear = document.getElementById("btnClear");
 
-    if (fileInput) fileInput.addEventListener("change", lerArquivo);
+    if (excelFile) excelFile.addEventListener("change", lerArquivo);
+    if (btnUpdate) btnUpdate.addEventListener("click", processarEAtualizar);
     if (statusFilter) statusFilter.addEventListener("change", processarEAtualizar);
     if (regionFilter) regionFilter.addEventListener("change", processarEAtualizar);
     if (startDate) startDate.addEventListener("change", processarEAtualizar);
     if (endDate) endDate.addEventListener("change", processarEAtualizar);
-    if (btnLimpar) btnLimpar.addEventListener("click", limparFiltros);
+    if (btnClear) btnClear.addEventListener("click", limparFiltros);
 });
 
 /* ============================================================
@@ -42,17 +44,38 @@ function lerArquivo(evento) {
         try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: "array", cellDates: true });
-            const primeirAba = workbook.SheetNames[0];
-            const planilha = workbook.Sheets[primeirAba];
+            const primeiraAba = workbook.SheetNames[0];
+            const planilha = workbook.Sheets[primeiraAba];
 
             // Converte para JSON
             dadosBrutos = XLSX.utils.sheet_to_json(planilha, { defval: "" });
+
+            // Atualiza status na interface
+            const statusIcon = document.getElementById("statusIcon");
+            const statusMensagem = document.getElementById("statusMensagem");
+            const statusDetalhes = document.getElementById("statusDetalhes");
+
+            if (statusIcon) statusIcon.innerText = "🟢";
+            if (statusMensagem) statusMensagem.innerText = "Base carregada com sucesso!";
+            if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} registros importados.`;
+
+            // Oculta painel de erro se estiver visível
+            const painelErro = document.getElementById("painelErro");
+            if (painelErro) painelErro.style.display = "none";
 
             popularFiltrosSelect(dadosBrutos);
             processarEAtualizar();
         } catch (erro) {
             console.error("Erro ao ler arquivo:", erro);
-            alert("Falha ao processar o arquivo. Verifique se é um arquivo Excel/CSV válido.");
+            const painelErro = document.getElementById("painelErro");
+            const erroDetalhes = document.getElementById("erroDetalhes");
+
+            if (painelErro && erroDetalhes) {
+                painelErro.style.display = "block";
+                erroDetalhes.innerText = erro.message || "Falha ao processar a planilha.";
+            } else {
+                alert("Falha ao processar o arquivo. Verifique se é um arquivo Excel/CSV válido.");
+            }
         }
     };
 
@@ -129,7 +152,7 @@ function processarEAtualizar() {
 
     atualizarKPIs(dadosFiltrados);
     atualizarGraficos(dadosFiltrados);
-    atualizarTabelaDatas(dadosFiltrados);
+    atualizarTabelaAgenda(dadosFiltrados);
 }
 
 /* ============================================================
@@ -137,11 +160,8 @@ function processarEAtualizar() {
  * ============================================================ */
 
 function atualizarKPIs(dados) {
-    const totalPedidosEl = document.getElementById("kpiTotal");
-    const pendentesEl = document.getElementById("kpiPendentes");
-    const concluidosEl = document.getElementById("kpiConcluidos");
-
-    if (!totalPedidosEl) return;
+    const painelKPIs = document.getElementById("painelKPIs");
+    if (!painelKPIs) return;
 
     let total = dados.length;
     let pendentes = 0;
@@ -156,9 +176,20 @@ function atualizarKPIs(dados) {
         }
     });
 
-    totalPedidosEl.textContent = total;
-    if (pendentesEl) pendentesEl.textContent = pendentes;
-    if (concluidosEl) concluidosEl.textContent = concluidos;
+    painelKPIs.innerHTML = `
+        <div class="kpi-card">
+            <h4>Total de Pedidos</h4>
+            <span class="kpi-value">${total}</span>
+        </div>
+        <div class="kpi-card">
+            <h4>Pendentes</h4>
+            <span class="kpi-value">${pendentes}</span>
+        </div>
+        <div class="kpi-card">
+            <h4>Concluídos</h4>
+            <span class="kpi-value">${concluidos}</span>
+        </div>
+    `;
 }
 
 /* ============================================================
@@ -166,39 +197,21 @@ function atualizarKPIs(dados) {
  * ============================================================ */
 
 function atualizarGraficos(dados) {
-    const ctxStatus = document.getElementById("chartStatus")?.getContext("2d");
     const ctxRegiao = document.getElementById("chartRegiao")?.getContext("2d");
+    const ctxTipo = document.getElementById("chartTipo")?.getContext("2d");
 
-    // Contagem por Status
-    const statusCounts = {};
-    // Contagem por Região
     const regiaoCounts = {};
+    const tipoCounts = {};
 
     dados.forEach((row) => {
-        const st = normalizarTexto(row.STATUS || row.Status || row.status) || "Outros";
         const rg = nomeRegiao(normalizarTexto(row.REGIAO || row.Regiao || row.regiao || row.UF || row.Estado) || "N/A");
+        const tp = normalizarTexto(row.TIPO || row.Tipo || row.tipo || row.OPERACAO || row.Operacao) || "Outros";
 
-        statusCounts[st] = (statusCounts[st] || 0) + 1;
         regiaoCounts[rg] = (regiaoCounts[rg] || 0) + 1;
+        tipoCounts[tp] = (tipoCounts[tp] || 0) + 1;
     });
 
-    // Gráfico de Status (Rosca/Pie)
-    if (ctxStatus) {
-        if (graficoStatusInstance) graficoStatusInstance.destroy();
-        graficoStatusInstance = new Chart(ctxStatus, {
-            type: "doughnut",
-            data: {
-                labels: Object.keys(statusCounts),
-                datasets: [{
-                    data: Object.values(statusCounts),
-                    backgroundColor: ["#2563eb", "#16a34a", "#dc2626", "#eab308", "#9333ea", "#64748b"]
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    // Gráfico de Regiões (Barras)
+    // Gráfico por Região (Barras)
     if (ctxRegiao) {
         if (graficoRegiaoInstance) graficoRegiaoInstance.destroy();
         graficoRegiaoInstance = new Chart(ctxRegiao, {
@@ -214,14 +227,30 @@ function atualizarGraficos(dados) {
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
+
+    // Gráfico por Tipo (Rosca/Doughnut)
+    if (ctxTipo) {
+        if (graficoTipoInstance) graficoTipoInstance.destroy();
+        graficoTipoInstance = new Chart(ctxTipo, {
+            type: "doughnut",
+            data: {
+                labels: Object.keys(tipoCounts),
+                datasets: [{
+                    data: Object.values(tipoCounts),
+                    backgroundColor: ["#2563eb", "#16a34a", "#dc2626", "#eab308", "#9333ea", "#64748b"]
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
 }
 
 /* ============================================================
- * TABELA PRINCIPAL / AGRUPAMENTO DE DATAS
+ * TABELA PRINCIPAL / AGENDA
  * ============================================================ */
 
-function atualizarTabelaDatas(dados) {
-    const tbody = document.querySelector("#tabelaDatas tbody");
+function atualizarTabelaAgenda(dados) {
+    const tbody = document.querySelector("#tabelaAgenda tbody");
     if (!tbody) return;
 
     const grupos = {};
@@ -247,7 +276,7 @@ function atualizarTabelaDatas(dados) {
         grupos[chave].quantidade++;
     });
 
-    const gruposOrdenados = Object.values(grupos).sort(function (a, b) {
+    const gruposOrdenados = Object.values(grupos).sort((a, b) => {
         if (a.timestamp !== b.timestamp) {
             return a.timestamp - b.timestamp;
         }
@@ -261,7 +290,7 @@ function atualizarTabelaDatas(dados) {
         return;
     }
 
-    gruposOrdenados.forEach(function (grupo) {
+    gruposOrdenados.forEach((grupo) => {
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
