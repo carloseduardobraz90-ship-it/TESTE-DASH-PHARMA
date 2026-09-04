@@ -1,0 +1,461 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg-primary: #f8fafc;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --border-color: #e2e8f0;
+    --radius: 12px;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+        0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-main);
+    padding: 2rem;
+    line-height: 1.5;
+}
+
+/* ============================================================
+HEADER
+============================================================ */
+
+.dashboard-header {
+    margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -0.025em;
+}
+
+.dashboard-header .subtitle {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+}
+
+/* ============================================================
+CONTROLES
+============================================================ */
+
+.controls-card {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit,
+            minmax(200px, 1fr));
+
+    gap: 1.25rem;
+
+    align-items: end;
+
+    margin-bottom: 2rem;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.control-group input,
+.control-group select,
+.btn-clear {
+    width: 100%;
+    height: 42px;
+    padding: 0 0.85rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: #fff;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.control-group input:focus,
+.control-group select:focus {
+    border-color: var(--primary);
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.btn-clear {
+    background-color: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+}
+
+.btn-clear:hover {
+    background-color: #e2e8f0;
+}
+
+/* ============================================================
+KPIs
+============================================================ */
+
+#painelKPIs {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit,
+            minmax(220px, 1fr));
+
+    gap: 1.25rem;
+
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: var(--bg-card);
+    padding: 1.25rem 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+
+    display: flex;
+    flex-direction: column;
+}
+
+.kpi-card span {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.kpi-card strong {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0.25rem 0;
+}
+
+.kpi-card small {
+    font-size: 0.75rem;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* ============================================================
+CARDS
+============================================================ */
+
+.card {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    margin-bottom: 2rem;
+}
+
+.card h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--text-main);
+}
+
+/* ============================================================
+REGIÕES
+============================================================ */
+
+.regiao-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.regiao-linha:last-child {
+    border-bottom: none;
+}
+
+.regiao-linha span {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.regiao-linha div {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.regiao-linha div small {
+    font-size: 0.8rem;
+    color: var(--primary);
+    margin-left: 0.25rem;
+}
+
+/* ============================================================
+GRÁFICOS
+============================================================ */
+
+.grid-container {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit,
+            minmax(400px, 1fr));
+
+    gap: 1.5rem;
+
+    margin-bottom: 2rem;
+}
+
+.chart-box {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* ============================================================
+TABELA PRINCIPAL
+============================================================ */
+
+.table-help {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-top: -0.75rem;
+    margin-bottom: 1rem;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#tabelaAgenda {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+#tabelaAgenda th {
+    background-color: #f8fafc;
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+}
+
+#tabelaAgenda td {
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#tabelaAgenda tr:last-child td {
+    border-bottom: none;
+}
+
+.agenda-row:hover {
+    background-color: #f8fafc;
+}
+
+/* ============================================================
+BOTÃO EXPANDIR
+============================================================ */
+
+.btn-expand {
+    border: none;
+    background: transparent;
+
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    cursor: pointer;
+
+    color: var(--primary);
+
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+
+    padding: 0.35rem 0.5rem;
+
+    border-radius: 6px;
+
+    transition: all 0.2s ease;
+}
+
+.btn-expand:hover {
+    background-color: #eff6ff;
+    color: var(--primary-hover);
+}
+
+.btn-expand strong {
+    font-size: 1rem;
+}
+
+.btn-expand span {
+    font-size: 0.78rem;
+}
+
+.btn-expand .arrow {
+    font-size: 0.85rem;
+    margin-left: 0.2rem;
+}
+
+/* ============================================================
+BADGES
+============================================================ */
+
+.region-badge,
+.status-badge {
+    display: inline-block;
+
+    padding: 0.3rem 0.55rem;
+
+    border-radius: 6px;
+
+    font-size: 0.72rem;
+
+    font-weight: 600;
+
+    background-color: #f1f5f9;
+
+    color: #475569;
+}
+
+/* ============================================================
+LINHAS EXPANDIDAS
+============================================================ */
+
+.details-row {
+    background-color: #f8fafc;
+}
+
+.details-row>td {
+    padding: 0 !important;
+}
+
+.details-container {
+    padding: 1rem 1.25rem 1.25rem 1.25rem;
+}
+
+/* ============================================================
+TABELA DE DETALHES
+============================================================ */
+
+.details-table {
+    width: 100%;
+    border-collapse: collapse;
+
+    background-color: #ffffff;
+
+    border: 1px solid var(--border-color);
+
+    border-radius: 8px;
+
+    overflow: hidden;
+}
+
+.details-table th {
+    background-color: #f1f5f9;
+
+    color: var(--text-muted);
+
+    font-size: 0.72rem;
+
+    text-transform: uppercase;
+
+    font-weight: 600;
+
+    padding: 0.65rem 0.75rem;
+
+    border-bottom: 1px solid var(--border-color);
+}
+
+.details-table td {
+    padding: 0.7rem 0.75rem;
+
+    font-size: 0.82rem;
+
+    color: var(--text-main);
+
+    border-bottom: 1px solid var(--border-color);
+}
+
+.details-table tr:last-child td {
+    border-bottom: none;
+}
+
+.details-table tr:hover {
+    background-color: #f8fafc;
+}
+
+/* ============================================================
+SEM RESULTADO
+============================================================ */
+
+.empty-table {
+    text-align: center;
+
+    color: var(--text-muted);
+
+    padding: 2rem !important;
+
+    font-size: 0.9rem;
+}
+
+/* ============================================================
+RESPONSIVIDADE
+============================================================ */
+
+@media (max-width: 768px) {
+
+    body {
+        padding: 1rem;
+    }
+
+    .grid-container {
+        grid-template-columns: 1fr;
+    }
+
+    .controls-card {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-box {
+        height: 280px;
+    }
+
+    .details-table {
+        min-width: 800px;
+    }
+
+}
