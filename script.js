@@ -2858,7 +2858,7 @@ function atualizarTabela(
             <tr>
 
                 <td
-                    colspan="7"
+                    colspan="8"
                     style="
                         text-align: center;
                         color: var(--text-muted);
@@ -2916,6 +2916,17 @@ function atualizarTabela(
                         "ITEM"
                     ]
                 );
+
+
+            const fornecedor =
+                extrairValorColuna(
+                    row,
+                    [
+                        "FORNECEDOR",
+                        "FORNECEDOR_"
+                    ]
+                ) ||
+                "-";
 
 
             const projeto =
@@ -3053,6 +3064,13 @@ function atualizarTabela(
                     (${escapeHTML(
                         item
                     )})
+                </td>
+
+
+                <td>
+                    ${escapeHTML(
+                        fornecedor
+                    )}
                 </td>
 
 
