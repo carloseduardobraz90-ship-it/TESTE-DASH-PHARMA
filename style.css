@@ -10,7 +10,7 @@
 }
 
 body {
-    background-color: #f1f5f9;
+    background-color: #eef6fc;
     color: #334155;
     padding: 24px;
     max-width: 1400px;
@@ -27,7 +27,7 @@ body {
 
 .dashboard-header h1 {
     font-size: 28px;
-    color: #0f172a;
+    color: #123d66;
     font-weight: 700;
 }
 
@@ -63,8 +63,8 @@ body {
     background: #ffffff;
     padding: 20px;
     border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #d7e7f3;
+    box-shadow: 0 2px 6px rgba(18, 61, 102, 0.06);
     margin-bottom: 20px;
 }
 
@@ -77,7 +77,7 @@ body {
 .control-group label {
     font-size: 12px;
     font-weight: 600;
-    color: #475569;
+    color: #164a7b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -87,21 +87,22 @@ body {
 .control-group select {
     width: 100%;
     padding: 9px 12px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #c5d9e8;
     border-radius: 8px;
     font-size: 14px;
     color: #1e293b;
     background-color: #ffffff;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .control-group input:focus,
 .control-group select:focus {
-    border-color: #2563eb;
+    border-color: #164a7b;
+    box-shadow: 0 0 0 3px rgba(22, 74, 123, 0.08);
 }
 
-/* BOTÕES */
+/* BOTÃO ATUALIZAR */
 
 .btn-update {
     width: 100%;
@@ -111,31 +112,33 @@ body {
     cursor: pointer;
     font-weight: 600;
     font-size: 14px;
-    background: #2563eb;
+    background: #164a7b;
     color: #ffffff;
     transition: 0.2s;
 }
 
 .btn-update:hover {
-    background: #1d4ed8;
+    background: #123d66;
 }
+
+/* BOTÃO LIMPAR */
 
 .btn-clear {
     width: 100%;
     padding: 10px 16px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #c5d9e8;
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
     font-size: 14px;
     background: #ffffff;
-    color: #64748b;
+    color: #164a7b;
     transition: 0.2s;
 }
 
 .btn-clear:hover {
-    background: #f8fafc;
-    color: #0f172a;
+    background: #edf6fc;
+    color: #123d66;
 }
 
 /* ============================================================
@@ -147,7 +150,8 @@ body {
     padding: 16px 20px;
     border-radius: 10px;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #d7e7f3;
+    box-shadow: 0 1px 4px rgba(18, 61, 102, 0.04);
 }
 
 .status-base-title {
@@ -155,7 +159,7 @@ body {
     align-items: center;
     gap: 8px;
     font-size: 15px;
-    color: #0f172a;
+    color: #123d66;
 }
 
 .status-detalhes {
@@ -198,14 +202,14 @@ body {
     padding: 20px;
     border-radius: 12px;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #d7e7f3;
+    box-shadow: 0 2px 6px rgba(18, 61, 102, 0.06);
 }
 
 .kpi-card h4 {
     font-size: 13px;
     font-weight: 600;
-    color: #64748b;
+    color: #164a7b;
     margin-bottom: 8px;
     text-transform: uppercase;
 }
@@ -214,7 +218,7 @@ body {
     display: block;
     font-size: 32px;
     font-weight: 700;
-    color: #0f172a;
+    color: #123d66;
 }
 
 /* ============================================================
@@ -232,13 +236,13 @@ body {
     background: #ffffff;
     padding: 20px;
     border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #d7e7f3;
+    box-shadow: 0 2px 6px rgba(18, 61, 102, 0.06);
 }
 
 .card h3 {
     font-size: 16px;
-    color: #0f172a;
+    color: #123d66;
     margin-bottom: 16px;
 }
 
@@ -273,17 +277,17 @@ table {
 th,
 td {
     padding: 12px 16px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid #d7e7f3;
 }
 
 th {
-    background-color: #f8fafc;
-    color: #475569;
+    background-color: #f2f8fc;
+    color: #164a7b;
     font-weight: 600;
 }
 
 tr:hover {
-    background-color: #f8fafc;
+    background-color: #f6fbff;
 }
 
 /* BADGES DE STATUS */
