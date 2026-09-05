@@ -63,12 +63,21 @@ function converterMoedaParaNumero(valor) {
     if (!valor) return 0;
     if (typeof valor === 'number') return valor;
 
-    // Trata formato BRL ("23.969,74" -> 23969.74)
-    const limpo = String(valor)
-        .replace(/\./g, '')
-        .replace(',', '.')
-        .replace(/[^0-9.-]/g, '');
+    // Trata formato BRL ("23.969,74" -> 23969.74) ou formato americano ("23969.74")
+    const valorStr = String(valor).trim();
+    
+    // Se tiver vírgula e ponto, assume padrão BR
+    if (valorStr.includes(',') && valorStr.includes('.')) {
+        const limpo = valorStr.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+        return parseFloat(limpo) || 0;
+    }
+    // Se tiver apenas vírgula
+    if (valorStr.includes(',') && !valorStr.includes('.')) {
+        const limpo = valorStr.replace(',', '.').replace(/[^0-9.-]/g, '');
+        return parseFloat(limpo) || 0;
+    }
 
+    const limpo = valorStr.replace(/[^0-9.-]/g, '');
     return parseFloat(limpo) || 0;
 }
 
@@ -109,6 +118,12 @@ function processarArquivo(event) {
                 throw new Error("A planilha/CSV selecionado está vazio.");
             }
 
+            // LOG DE DIAGNÓSTICO NO CONSOLE (F12)
+            console.log("=== ARQUIVO CARREGADO COM SUCESSO ===");
+            console.log("Total de linhas:", dadosBrutos.length);
+            console.log("Colunas encontradas na primeira linha:", Object.keys(dadosBrutos[0]));
+            console.log("Exemplo da primeira linha:", dadosBrutos[0]);
+
             if (statusIcon) statusIcon.innerText = "🟢";
             if (statusMensagem) statusMensagem.innerText = "Base de dados carregada!";
             if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} linhas de itens importadas.`;
@@ -117,6 +132,7 @@ function processarArquivo(event) {
             processarEAtualizar();
 
         } catch (error) {
+            console.error("Erro ao processar arquivo:", error);
             if (statusIcon) statusIcon.innerText = "🔴";
             if (statusMensagem) statusMensagem.innerText = "Erro ao carregar o arquivo";
             if (statusDetalhes) statusDetalhes.innerText = "Verifique o formato e tente novamente.";
@@ -131,12 +147,18 @@ function processarArquivo(event) {
     reader.readAsArrayBuffer(file);
 }
 
-// Parser de CSV com suporte a delimitador ';' e valores entre aspas
-function converterCSVParaArray(strData, strDelimiter = ";") {
+// Parser de CSV inteligente com detecção de delimitador (';' ou ',')
+function converterCSVParaArray(strData) {
     const lines = strData.split(/\r\n|\n/);
     if (lines.length === 0) return [];
 
-    const headers = lines[0].split(strDelimiter).map(h => h.replace(/^["\uFEFF]+|["\s]+$/g, ''));
+    // Detecta se usa ';' ou ',' na primeira linha
+    const primeiraLinha = lines[0];
+    const qtdPontoVirgula = (primeiraLinha.match(/;/g) || []).length;
+    const qtdVirgula = (primeiraLinha.match(/,/g) || []).length;
+    const strDelimiter = qtdPontoVirgula >= qtdVirgula ? ";" : ",";
+
+    const headers = primeiraLinha.split(strDelimiter).map(h => h.replace(/^["\uFEFF]+|["\s]+$/g, ''));
     const result = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -170,9 +192,9 @@ function popularFiltrosSelect(dados) {
     const buyerSet = new Set();
 
     dados.forEach((row) => {
-        const st = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
-        const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO"]);
-        const buyer = extrairValorColuna(row, ["COMPRADOR"]);
+        const st = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATUS DO PEDIDO"]);
+        const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO", "GRUPO"]);
+        const buyer = extrairValorColuna(row, ["COMPRADOR", "RESPONSAVEL"]);
 
         if (st) statusSet.add(st);
         if (cat) catSet.add(cat);
@@ -206,13 +228,13 @@ function processarEAtualizar() {
     const buyerSel = document.getElementById("buyerFilter")?.value || "TODOS";
 
     dadosFiltrados = dadosBrutos.filter((row) => {
-        const st = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
+        const st = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATUS DO PEDIDO"]);
         if (statusSel !== "TODOS" && st !== statusSel) return false;
 
-        const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO"]);
+        const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO", "GRUPO"]);
         if (catSel !== "TODAS" && cat !== catSel) return false;
 
-        const buyer = extrairValorColuna(row, ["COMPRADOR"]);
+        const buyer = extrairValorColuna(row, ["COMPRADOR", "RESPONSAVEL"]);
         if (buyerSel !== "TODOS" && buyer !== buyerSel) return false;
 
         return true;
@@ -224,7 +246,7 @@ function processarEAtualizar() {
 }
 
 /* ============================================================
- * ATUALIZAÇÃO DOS KPIS (DEDUPLICANDO PEDIDOS)
+ * ATUALIZAÇÃO DOS KPIS
  * ============================================================ */
 function atualizarKPIs(dados) {
     const painelKPIs = document.getElementById("painelKPIs");
@@ -236,9 +258,9 @@ function atualizarKPIs(dados) {
     let pedidosFinalizadosSet = new Set();
 
     dados.forEach((row) => {
-        const numPedido = extrairValorColuna(row, ["PEDIDO_", "PEDIDO", "SOLICITACAO"]);
-        const status = extrairValorColuna(row, ["STATUS"]);
-        const valorItem = converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL", "VLRTOTAL", "VALOR TOTAL"]));
+        const numPedido = extrairValorColuna(row, ["PEDIDO_", "PEDIDO", "SOLICITACAO", "NUMERO DO PEDIDO"]);
+        const status = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
+        const valorItem = converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL", "VLRTOTAL", "VALOR TOTAL", "VALOR"]));
 
         valorTotalGeral += valorItem;
 
@@ -289,8 +311,8 @@ function atualizarGraficos(dados) {
     const catCounts = {};
 
     dados.forEach((row) => {
-        const st = extrairValorColuna(row, ["STATUS"]) || "Indefinido";
-        const cat = extrairValorColuna(row, ["CATEGORIA"]) || "Outros";
+        const st = extrairValorColuna(row, ["STATUS", "SITUACAO"]) || "Indefinido";
+        const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO"]) || "Outros";
 
         statusCounts[st] = (statusCounts[st] || 0) + 1;
         catCounts[cat] = (catCounts[cat] || 0) + 1;
@@ -338,7 +360,7 @@ function atualizarTabela(dados) {
     tbody.innerHTML = "";
 
     if (dados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhum registro encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhum registro encontrado.</td></tr>`;
         return;
     }
 
@@ -347,12 +369,12 @@ function atualizarTabela(dados) {
 
     limiteExibicao.forEach((row) => {
         const tr = document.createElement("tr");
-        const numPedido = extrairValorColuna(row, ["PEDIDO_"]);
-        const item = extrairValorColuna(row, ["ITEM_"]);
+        const numPedido = extrairValorColuna(row, ["PEDIDO_", "PEDIDO", "SOLICITACAO"]);
+        const item = extrairValorColuna(row, ["ITEM_", "ITEM"]);
         const fornecedor = extrairValorColuna(row, ["NOME", "FORNECEDOR"]);
-        const categoria = extrairValorColuna(row, ["CATEGORIA"]);
-        const valor = formatarMoedaBRL(converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL"])));
-        const status = extrairValorColuna(row, ["STATUS"]);
+        const categoria = extrairValorColuna(row, ["CATEGORIA", "TIPO"]);
+        const valor = formatarMoedaBRL(converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL", "VLRTOTAL", "VALOR TOTAL"])));
+        const status = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
 
         tr.innerHTML = `
             <td><strong>#${numPedido}</strong> (${item})</td>
@@ -379,4 +401,4 @@ function limparFiltros() {
     if (buyerFilter) buyerFilter.value = "TODOS";
 
     processarEAtualizar();
-} ATT5
+}
