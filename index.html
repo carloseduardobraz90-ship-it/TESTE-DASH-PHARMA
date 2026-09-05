@@ -253,7 +253,7 @@
         <div id="statusBanner" class="status-banner" style="display: none;">
             <span id="statusIcon">🟢</span>
             <div>
-                <strong id="statusMensagem">Base de dados carregada!</strong>
+                <strong id="statusMensagem">Base de dados carregada com sucesso!</strong>
                 <p id="statusDetalhes" style="font-size: 0.85rem; color: #475569;"></p>
             </div>
         </div>
@@ -351,8 +351,8 @@
             for (const nome of nomesPossiveis) {
                 const nomeAlvo = normalizarChave(nome);
                 const chaveEncontrada = chaves.find(k => normalizarChave(k) === nomeAlvo);
-                if (chaveEncontrada && row[chaveEncontrada] !== undefined && row[chaveEncontrada] !== "") {
-                    return String(row[chaveEncontrada]).trim();
+                if (chaveEncontrada && row[chaveEncontrada] !== undefined && row[chaveEncontrada] !== null && String(row[chaveEncontrada]).trim() !== "") {
+                    return String(row[chaveEncontrada]).replace(/^["\s]+|["\s]+$/g, '').trim();
                 }
             }
             return "";
@@ -371,14 +371,20 @@
 
         function parseDataBR(strData) {
             if (!strData) return null;
-            const partes = strData.split("/");
+            const limpo = String(strData).replace(/["\s]/g, '');
+            const partes = limpo.split("/");
             if (partes.length === 3) {
-                return new Date(partes[2], partes[1] - 1, partes[0]);
+                const dia = parseInt(partes[0], 10);
+                const mes = parseInt(partes[1], 10) - 1;
+                const ano = parseInt(partes[2], 10);
+                if (!isNaN(dia) && !isNaN(mes) && !isNaN(ano)) {
+                    return new Date(ano, mes, dia);
+                }
             }
             return null;
         }
 
-        /* LEITURA DE ARQUIVO */
+        /* LEITURA DE ARQUIVO UNIVERSAL (Excel + CSV com suporte a Aspas/Delimitadores) */
         function processarArquivo(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -388,14 +394,17 @@
 
             reader.onload = function (e) {
                 try {
-                    const buffer = e.target.result;
-                    if (file.name.endsWith('.csv')) {
-                        const text = new TextDecoder('utf-8').decode(buffer);
-                        dadosBrutos = converterCSVParaArray(text);
-                    } else {
-                        const data = new Uint8Array(buffer);
-                        const workbook = XLSX.read(data, { type: "array" });
-                        dadosBrutos = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+                    const data = new Uint8Array(e.target.result);
+                    // XLSX consegue ler arquivos .xlsx, .xls e .csv perfeitamente
+                    const workbook = XLSX.read(data, { type: "array", raw: false });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+
+                    dadosBrutos = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                    if (dadosBrutos.length === 0) {
+                        alert("O arquivo selecionado está vazio ou não possui linhas válidas.");
+                        return;
                     }
 
                     banner.style.display = "flex";
@@ -408,25 +417,6 @@
                 }
             };
             reader.readAsArrayBuffer(file);
-        }
-
-        function converterCSVParaArray(strData) {
-            const lines = strData.split(/\r\n|\n/);
-            if (lines.length === 0) return [];
-            const headers = lines[0].split(";").map(h => h.replace(/^["\uFEFF]+|["\s]+$/g, ''));
-            const result = [];
-
-            for (let i = 1; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                const row = {};
-                const currentline = lines[i].split(";");
-                headers.forEach((header, index) => {
-                    let val = currentline[index] || "";
-                    row[header] = val.replace(/^["\s]+|["\s]+$/g, '');
-                });
-                result.push(row);
-            }
-            return result;
         }
 
         function popularFiltrosSelect(dados) {
