@@ -37,6 +37,21 @@ body {
     margin-top: 4px;
 }
 
+/* LOGO PHARMAINox */
+
+.logo-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 5px 0;
+}
+
+.logo-header img {
+    width: 230px;
+    height: auto;
+    display: block;
+}
+
 /* ============================================================
    CONTROLES E FILTROS
    ============================================================ */
@@ -301,4 +316,58 @@ tr:hover {
 .badge.status-erro {
     background-color: #fee2e2;
     color: #b91c1c;
+}
+
+/* ============================================================
+   RESPONSIVIDADE
+   ============================================================ */
+
+@media (max-width: 900px) {
+    body {
+        padding: 12px;
+    }
+
+    .grid-container {
+        grid-template-columns: 1fr;
+    }
+
+    .logo-header img {
+        width: 190px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 24px;
+    }
+
+    .kpi-value {
+        font-size: 28px;
+    }
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+
+    .controls-card {
+        grid-template-columns: 1fr;
+        padding: 16px;
+    }
+
+    .card {
+        padding: 16px;
+    }
+
+    .logo-header {
+        justify-content: flex-start;
+        margin-bottom: 16px;
+    }
+
+    .logo-header img {
+        width: 170px;
+    }
+
+    .chart-box {
+        height: 260px;
+    }
 }
