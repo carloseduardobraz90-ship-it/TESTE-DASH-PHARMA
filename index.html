@@ -370,7 +370,21 @@
 
         function parseDataBR(strData) {
             if (!strData) return null;
+            
+            // Se for número serial do Excel
+            if (!isNaN(strData) && Number(strData) > 1000) {
+                const excelEpoch = new Date(1899, 11, 30);
+                const msPerDay = 24 * 60 * 60 * 1000;
+                return new Date(excelEpoch.getTime() + Number(strData) * msPerDay);
+            }
+
             const limpo = String(strData).replace(/["\s]/g, '');
+            // Verifica formato ISO (YYYY-MM-DD) comum em exports do Excel
+            if (/^\d{4}-\d{2}-\d{2}$/.test(limpo)) {
+                const partesIso = limpo.split("-");
+                return new Date(parseInt(partesIso[0], 10), parseInt(partesIso[1], 10) - 1, parseInt(partesIso[2], 10));
+            }
+
             const partes = limpo.split("/");
             if (partes.length === 3) {
                 const dia = parseInt(partes[0], 10);
@@ -400,7 +414,7 @@
                         dadosBrutos = parseCSVComSeparador(text);
                     } else {
                         const data = new Uint8Array(buffer);
-                        const workbook = XLSX.read(data, { type: "array" });
+                        const workbook = XLSX.read(data, { type: "array", cellDates: true });
                         dadosBrutos = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
                     }
 
@@ -426,9 +440,7 @@
             const lines = text.split(/\r\n|\n/);
             if (lines.length === 0) return [];
 
-            // Descobrir separador na primeira linha
             const sep = lines[0].includes(';') ? ';' : ',';
-
             const headers = lines[0].split(sep).map(h => h.replace(/^["\uFEFF\s]+|["\s]+$/g, ''));
             const result = [];
 
@@ -451,9 +463,9 @@
             const statusSet = new Set(), catSet = new Set(), projSet = new Set();
 
             dados.forEach((row) => {
-                const st = extrairValorColuna(row, ["STATUS"]);
+                const st = extrairValorColuna(row, ["STATUS", "W"]);
                 const cat = extrairValorColuna(row, ["CATEGORIA"]);
-                const proj = extrairValorColuna(row, ["PROJETO"]);
+                const proj = extrairValorColuna(row, ["PROJETO", "D"]);
 
                 if (st) statusSet.add(st);
                 if (cat) catSet.add(cat);
@@ -490,7 +502,7 @@
 
             dadosFiltrados = dadosBrutos.filter((row) => {
                 // 1. Status
-                const st = extrairValorColuna(row, ["STATUS"]);
+                const st = extrairValorColuna(row, ["STATUS", "W"]);
                 if (statusSel !== "TODOS" && st !== statusSel) return false;
 
                 // 2. Categoria
@@ -498,11 +510,11 @@
                 if (catSel !== "TODAS" && cat !== catSel) return false;
 
                 // 3. Projeto
-                const proj = extrairValorColuna(row, ["PROJETO"]);
+                const proj = extrairValorColuna(row, ["PROJETO", "D"]);
                 if (projSel !== "TODOS" && proj !== projSel) return false;
 
                 // 4. Data de Agendamento (Coluna V)
-                const strAgendamento = extrairValorColuna(row, ["AGENDAMENTO"]);
+                const strAgendamento = extrairValorColuna(row, ["AGENDAMENTO", "V"]);
                 if (dtInicio || dtFim) {
                     if (!strAgendamento) return false;
                     const dataAg = parseDataBR(strAgendamento);
@@ -526,17 +538,17 @@
             let totalItensFinalizadosComLT = 0;
 
             dados.forEach((row) => {
-                const numPedido = extrairValorColuna(row, ["PEDIDO_"]);
-                const status = extrairValorColuna(row, ["STATUS"]).toUpperCase();
-                const valorItem = converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL"]));
+                const numPedido = extrairValorColuna(row, ["PEDIDO_", "PEDIDO", "PED"]);
+                const status = extrairValorColuna(row, ["STATUS", "W"]).toUpperCase();
+                const valorItem = converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL", "VALOR", "VLR", "Q"]));
 
                 valorTotalGeral += valorItem;
                 if (numPedido) pedidosUnicosSet.add(numPedido);
 
                 // Lead time (Apenas se STATUS == FINALIZADO)
                 if (status === "FINALIZADO") {
-                    const dtE = parseDataBR(extrairValorColuna(row, ["EMISSAO"]));
-                    const dtA = parseDataBR(extrairValorColuna(row, ["AGENDAMENTO"]));
+                    const dtE = parseDataBR(extrairValorColuna(row, ["EMISSAO", "DATAEMISSAO", "G"]));
+                    const dtA = parseDataBR(extrairValorColuna(row, ["AGENDAMENTO", "DATAAGENDAMENTO", "V"]));
 
                     if (dtE && dtA && dtA >= dtE) {
                         const diffTime = Math.abs(dtA - dtE);
@@ -565,7 +577,7 @@
             const statusCounts = {}, catCounts = {};
 
             dados.forEach((row) => {
-                const st = extrairValorColuna(row, ["STATUS"]) || "Sem Status";
+                const st = extrairValorColuna(row, ["STATUS", "W"]) || "Sem Status";
                 const cat = extrairValorColuna(row, ["CATEGORIA"]) || "Outros";
 
                 statusCounts[st] = (statusCounts[st] || 0) + 1;
@@ -609,27 +621,34 @@
 
             dados.slice(0, 100).forEach((row) => {
                 const tr = document.createElement("tr");
-                const numPedido = extrairValorColuna(row, ["PEDIDO_"]);
-                const item = extrairValorColuna(row, ["ITEM_"]);
-                const projeto = extrairValorColuna(row, ["PROJETO"]) || "-";
-                const dtEmissao = extrairValorColuna(row, ["EMISSAO"]) || "-";
-                const dtAgendamento = extrairValorColuna(row, ["AGENDAMENTO"]) || "-";
-                const valor = formatarMoedaBRL(converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL"])));
-                const status = extrairValorColuna(row, ["STATUS"]);
+                const numPedido = extrairValorColuna(row, ["PEDIDO_", "PEDIDO"]);
+                const item = extrairValorColuna(row, ["ITEM_", "ITEM"]);
+                const projeto = extrairValorColuna(row, ["PROJETO", "D"]) || "-";
+                
+                // Formatação correta para exibição de datas se vierem em objeto Date ou serial
+                let rawDtE = extrairValorColuna(row, ["EMISSAO", "G"]);
+                let rawDtA = extrairValorColuna(row, ["AGENDAMENTO", "V"]);
+                
+                const dtEObj = parseDataBR(rawDtE);
+                const dtAObj = parseDataBR(rawDtA);
+
+                const dtEmissao = dtEObj ? dtEObj.toLocaleDateString('pt-BR') : (rawDtE || "-");
+                const dtAgendamento = dtAObj ? dtAObj.toLocaleDateString('pt-BR') : (rawDtA || "-");
+
+                const valor = formatarMoedaBRL(converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL", "VALOR", "Q"])));
+                const status = extrairValorColuna(row, ["STATUS", "W"]);
 
                 // Cálculo Lead Time individual
                 let ltTexto = "-";
                 if (status.toUpperCase() === "FINALIZADO") {
-                    const dtE = parseDataBR(dtEmissao);
-                    const dtA = parseDataBR(dtAgendamento);
-                    if (dtE && dtA && dtA >= dtE) {
-                        const diffDays = Math.ceil(Math.abs(dtA - dtE) / (1000 * 60 * 60 * 24));
+                    if (dtEObj && dtAObj && dtAObj >= dtEObj) {
+                        const diffDays = Math.ceil(Math.abs(dtAObj - dtEObj) / (1000 * 60 * 60 * 24));
                         ltTexto = `${diffDays} dias`;
                     }
                 }
 
                 tr.innerHTML = `
-            <td><strong>#${numPedido}</strong> (${item})</td>
+            <td><strong>#${numPedido}</strong> ${item ? '(' + item + ')' : ''}</td>
             <td>${projeto}</td>
             <td>${dtEmissao}</td>
             <td>${dtAgendamento}</td>

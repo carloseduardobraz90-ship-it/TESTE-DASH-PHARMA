@@ -5,6 +5,7 @@ let dadosBrutos = [];
 let dadosFiltrados = [];
 let graficoStatusInstance = null;
 let graficoCategoriaInstance = null;
+let graficoEvolucaoValorInstance = null; // NOVO
 
 /* ============================================================
  * EVENTOS INICIAIS DA PÁGINA
@@ -16,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusFilter = document.getElementById("statusFilter");
     const categoryFilter = document.getElementById("categoryFilter");
     const buyerFilter = document.getElementById("buyerFilter");
+    const serviceFilter = document.getElementById("serviceFilter"); // NOVO
 
     if (excelFileInput) {
         excelFileInput.addEventListener("change", processarArquivo);
@@ -32,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (statusFilter) statusFilter.addEventListener("change", processarEAtualizar);
     if (categoryFilter) categoryFilter.addEventListener("change", processarEAtualizar);
     if (buyerFilter) buyerFilter.addEventListener("change", processarEAtualizar);
+    if (serviceFilter) serviceFilter.addEventListener("change", processarEAtualizar); // NOVO
 });
 
 /* ============================================================
@@ -63,15 +66,12 @@ function converterMoedaParaNumero(valor) {
     if (!valor) return 0;
     if (typeof valor === 'number') return valor;
 
-    // Trata formato BRL ("23.969,74" -> 23969.74) ou formato americano ("23969.74")
     const valorStr = String(valor).trim();
     
-    // Se tiver vírgula e ponto, assume padrão BR
     if (valorStr.includes(',') && valorStr.includes('.')) {
         const limpo = valorStr.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
         return parseFloat(limpo) || 0;
     }
-    // Se tiver apenas vírgula
     if (valorStr.includes(',') && !valorStr.includes('.')) {
         const limpo = valorStr.replace(',', '.').replace(/[^0-9.-]/g, '');
         return parseFloat(limpo) || 0;
@@ -83,6 +83,49 @@ function converterMoedaParaNumero(valor) {
 
 function formatarMoedaBRL(valor) {
     return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function parseDataBR(dataStr) {
+    if (!dataStr) return null;
+    
+    // Se vier no formato Excel serial number ou string de data
+    if (typeof dataStr === 'number') {
+        const utc_days = Math.floor(dataStr - 25569);
+        const utc_value = utc_days * 86400;
+        return new Date(utc_value * 1000);
+    }
+
+    const limpo = String(dataStr).trim();
+    
+    // Formato DD/MM/AAAA ou DD-MM-AAAA
+    const partes = limpo.split(/[\/\-]/);
+    if (partes.length === 3) {
+        // Se o primeiro tiver 4 dígitos (AAAA-MM-DD)
+        if (partes[0].length === 4) {
+            return new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+        }
+        // Padrão BR (DD/MM/AAAA)
+        return new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+    }
+
+    const dataObj = new Date(limpo);
+    return isNaN(dataObj.getTime()) ? null : dataObj;
+}
+
+// NOVO: Função de classificação de Serviços vs Produtos
+function identificarTipoServico(row) {
+    const descricao = extrairValorColuna(row, ["DESCRICAO"]);
+
+    const texto = String(descricao || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase();
+
+    if (texto.includes("SERVICO")) {
+        return "SERVICOS";
+    }
+
+    return "PRODUTOS";
 }
 
 /* ============================================================
@@ -118,12 +161,6 @@ function processarArquivo(event) {
                 throw new Error("A planilha/CSV selecionado está vazio.");
             }
 
-            // LOG DE DIAGNÓSTICO NO CONSOLE (F12)
-            console.log("=== ARQUIVO CARREGADO COM SUCESSO ===");
-            console.log("Total de linhas:", dadosBrutos.length);
-            console.log("Colunas encontradas na primeira linha:", Object.keys(dadosBrutos[0]));
-            console.log("Exemplo da primeira linha:", dadosBrutos[0]);
-
             if (statusIcon) statusIcon.innerText = "🟢";
             if (statusMensagem) statusMensagem.innerText = "Base de dados carregada!";
             if (statusDetalhes) statusDetalhes.innerText = `${dadosBrutos.length} linhas de itens importadas.`;
@@ -147,12 +184,10 @@ function processarArquivo(event) {
     reader.readAsArrayBuffer(file);
 }
 
-// Parser de CSV inteligente com detecção de delimitador (';' ou ',')
 function converterCSVParaArray(strData) {
     const lines = strData.split(/\r\n|\n/);
     if (lines.length === 0) return [];
 
-    // Detecta se usa ';' ou ',' na primeira linha
     const primeiraLinha = lines[0];
     const qtdPontoVirgula = (primeiraLinha.match(/;/g) || []).length;
     const qtdVirgula = (primeiraLinha.match(/,/g) || []).length;
@@ -226,6 +261,7 @@ function processarEAtualizar() {
     const statusSel = document.getElementById("statusFilter")?.value || "TODOS";
     const catSel = document.getElementById("categoryFilter")?.value || "TODAS";
     const buyerSel = document.getElementById("buyerFilter")?.value || "TODOS";
+    const serviceSel = document.getElementById("serviceFilter")?.value || "TODOS"; // NOVO
 
     dadosFiltrados = dadosBrutos.filter((row) => {
         const st = extrairValorColuna(row, ["STATUS", "SITUACAO", "STATUS DO PEDIDO"]);
@@ -237,11 +273,18 @@ function processarEAtualizar() {
         const buyer = extrairValorColuna(row, ["COMPRADOR", "RESPONSAVEL"]);
         if (buyerSel !== "TODOS" && buyer !== buyerSel) return false;
 
+        // NOVO: Filtro de Tipo (Produtos vs Serviços)
+        const tipoServico = identificarTipoServico(row);
+        if (serviceSel !== "TODOS" && tipoServico !== serviceSel) {
+            return false;
+        }
+
         return true;
     });
 
     atualizarKPIs(dadosFiltrados);
     atualizarGraficos(dadosFiltrados);
+    atualizarGraficoEvolucaoValor(dadosFiltrados); // NOVO
     atualizarTabela(dadosFiltrados);
 }
 
@@ -351,6 +394,121 @@ function atualizarGraficos(dados) {
 }
 
 /* ============================================================
+ * NOVO GRÁFICO: EVOLUÇÃO DO VALOR FINALIZADO POR SEMANA
+ * ============================================================ */
+function atualizarGraficoEvolucaoValor(dados) {
+    const canvas = document.getElementById("chartEvolucaoValor");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    if (graficoEvolucaoValorInstance) {
+        graficoEvolucaoValorInstance.destroy();
+    }
+
+    const valoresPorSemana = {};
+
+    dados.forEach((row) => {
+        const status = extrairValorColuna(row, ["STATUS", "SITUACAO"])
+            .toUpperCase()
+            .trim();
+
+        // Considera finalizado ou entregue
+        if (!status.includes("FINALIZADO") && !status.includes("ENTREGUE")) {
+            return;
+        }
+
+        const dataAgendamento = extrairValorColuna(row, ["AGENDAMENTO", "DATA", "EMISSAO"]);
+        const data = parseDataBR(dataAgendamento);
+
+        if (!data) return;
+
+        const valor = converterMoedaParaNumero(
+            extrairValorColuna(row, ["VLR.TOTAL", "VLRTOTAL", "VALOR TOTAL", "VALOR"])
+        );
+
+        if (!valor) return;
+
+        const ano = data.getFullYear();
+        const mes = data.getMonth();
+        const semana = Math.floor((data.getDate() - 1) / 7) + 1;
+
+        const chave = `${ano}-${String(mes + 1).padStart(2, "0")}-S${semana}`;
+
+        if (!valoresPorSemana[chave]) {
+            valoresPorSemana[chave] = { ano, mes, semana, valor: 0 };
+        }
+
+        valoresPorSemana[chave].valor += valor;
+    });
+
+    const dadosGrafico = Object.values(valoresPorSemana).sort((a, b) => {
+        if (a.ano !== b.ano) return a.ano - b.ano;
+        if (a.mes !== b.mes) return a.mes - b.mes;
+        return a.semana - b.semana;
+    });
+
+    const nomesMeses = [
+        "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+        "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+    ];
+
+    const labels = dadosGrafico.map(item => {
+        const primeiroDia = ((item.semana - 1) * 7) + 1;
+        const ultimoDia = Math.min(primeiroDia + 6, 31);
+        return `${nomesMeses[item.mes]} S${item.semana} (${primeiroDia}-${ultimoDia})`;
+    });
+
+    const valores = dadosGrafico.map(item => item.valor);
+
+    graficoEvolucaoValorInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Valor Finalizado",
+                data: valores,
+                borderColor: "#2563eb",
+                backgroundColor: "rgba(37, 99, 235, 0.10)",
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: "index"
+            },
+            plugins: {
+                legend: { display: true },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return " " + formatarMoedaBRL(context.raw);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return formatarMoedaBRL(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/* ============================================================
  * ATUALIZAÇÃO DA TABELA DE DADOS
  * ============================================================ */
 function atualizarTabela(dados) {
@@ -364,7 +522,6 @@ function atualizarTabela(dados) {
         return;
     }
 
-    // Exibe os primeiros 100 registros para otimizar renderização DOM
     const limiteExibicao = dados.slice(0, 100);
 
     limiteExibicao.forEach((row) => {
@@ -395,10 +552,12 @@ function limparFiltros() {
     const statusFilter = document.getElementById("statusFilter");
     const categoryFilter = document.getElementById("categoryFilter");
     const buyerFilter = document.getElementById("buyerFilter");
+    const serviceFilter = document.getElementById("serviceFilter"); // NOVO
 
     if (statusFilter) statusFilter.value = "TODOS";
     if (categoryFilter) categoryFilter.value = "TODAS";
     if (buyerFilter) buyerFilter.value = "TODOS";
+    if (serviceFilter) serviceFilter.value = "TODOS"; // NOVO
 
     processarEAtualizar();
 }
