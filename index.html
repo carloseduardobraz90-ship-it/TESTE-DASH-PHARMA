@@ -4,166 +4,703 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Operacional</title>
+    <title>Dashboard de Gestão de Fretes e Compras</title>
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
-
-    <!-- SheetJS (Leitura de Excel) -->
+    <!-- Bibliotecas Externas (Chart.js para gráficos e SheetJS para leitura de Excel) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --text-muted: #64748b;
+        }
 
-    <!-- JavaScript -->
-    <script src="script.js" defer></script>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Painel de Filtros */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            align-items: end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background-color: #fff;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            padding: 9px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+        }
+
+        /* Painel de Status */
+        .status-banner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        /* KPIs */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .kpi-card h4 {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .kpi-card .kpi-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+
+        /* Gráficos */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* Tabela */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th,
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-finalizado,
+        .badge-entregue {
+            background-color: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge-agendado,
+        .badge-programado {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .badge-coletado {
+            background-color: #fef9c3;
+            color: #a16207;
+        }
+    </style>
 </head>
 
 <body>
 
-    <!-- =====================================================
-         CABEÇALHO
-         ===================================================== -->
-    <header class="dashboard-header">
-        <h1>Dashboard Operacional</h1>
-        <p class="subtitle">
-            Análise de pedidos, operações, regiões e agenda futura.
-        </p>
-    </header>
+    <div class="container">
 
-    <!-- =====================================================
-         CONTROLES E FILTROS
-         ===================================================== -->
-    <section class="controls-card">
+        <!-- FORMULÁRIO E FILTROS -->
+        <div class="card">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="excelFile">Arquivo Base (.XLSX / .CSV)</label>
+                    <input type="file" id="excelFile" class="form-control" accept=".csv, .xlsx, .xls">
+                </div>
 
-        <!-- ARQUIVO -->
-        <div class="control-group">
-            <label for="excelFile">Arquivo Base (.xlsx / .csv)</label>
-            <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
-        </div>
+                <div class="filter-group">
+                    <label for="statusFilter">Status</label>
+                    <select id="statusFilter" class="form-control">
+                        <option value="TODOS">Todos os Status</option>
+                    </select>
+                </div>
 
-        <!-- BOTÃO ATUALIZAR -->
-        <div class="control-group">
-            <label>Atualização</label>
-            <button type="button" class="btn-update" id="btnUpdate">
-                🔄 Atualizar Dashboard
-            </button>
-        </div>
+                <div class="filter-group">
+                    <label for="categoryFilter">Categoria</label>
+                    <select id="categoryFilter" class="form-control">
+                        <option value="TODAS">Todas as Categorias</option>
+                    </select>
+                </div>
 
-        <!-- STATUS -->
-        <div class="control-group">
-            <label for="statusFilter">Status</label>
-            <select id="statusFilter">
-                <option value="TODOS">Todos os Status</option>
-            </select>
-        </div>
+                <div class="filter-group">
+                    <label for="projectFilter">Projeto</label>
+                    <select id="projectFilter" class="form-control">
+                        <option value="TODOS">Todos os Projetos</option>
+                    </select>
+                </div>
 
-        <!-- REGIÃO -->
-        <div class="control-group">
-            <label for="regionFilter">Região</label>
-            <select id="regionFilter">
-                <option value="TODAS">Todas as Regiões</option>
-            </select>
-        </div>
+                <div class="filter-group">
+                    <label for="dtInicio">Data Inicial (Emissão)</label>
+                    <input type="date" id="dtInicio" class="form-control">
+                </div>
 
-        <!-- DATA INICIAL -->
-        <div class="control-group">
-            <label for="startDate">Data Inicial</label>
-            <input type="date" id="startDate">
-        </div>
+                <div class="filter-group">
+                    <label for="dtFim">Data Final (Emissão)</label>
+                    <input type="date" id="dtFim" class="form-control">
+                </div>
 
-        <!-- DATA FINAL -->
-        <div class="control-group">
-            <label for="endDate">Data Final</label>
-            <input type="date" id="endDate">
-        </div>
-
-        <!-- LIMPAR -->
-        <div class="control-group">
-            <label>Filtros</label>
-            <button type="button" class="btn-clear" id="btnClear">
-                Limpar Filtros
-            </button>
-        </div>
-
-    </section>
-
-    <!-- =====================================================
-         STATUS DA BASE
-         ===================================================== -->
-    <section id="statusBase" class="status-base">
-        <div class="status-base-title">
-            <span id="statusIcon">⚪</span>
-            <strong id="statusMensagem">Nenhuma base carregada</strong>
-        </div>
-        <div id="statusDetalhes" class="status-detalhes">
-            Selecione um arquivo Excel/CSV acima e clique em "Atualizar Dashboard".
-        </div>
-    </section>
-
-    <!-- =====================================================
-         PAINEL DE ERRO
-         ===================================================== -->
-    <section id="painelErro" class="painel-erro" style="display:none;">
-        <div class="erro-titulo">❌ Erro ao processar a base</div>
-        <div id="erroDetalhes"></div>
-    </section>
-
-    <!-- =====================================================
-         KPIS
-         ===================================================== -->
-    <section id="painelKPIs">
-        <!-- Preenchido dinamicamente pelo JavaScript -->
-    </section>
-
-    <!-- =====================================================
-         GRÁFICOS
-         ===================================================== -->
-    <main class="grid-container">
-
-        <!-- GRÁFICO POR REGIÃO -->
-        <section class="card">
-            <h3>Volume de Pedidos por Região</h3>
-            <div class="chart-box">
-                <canvas id="chartRegiao"></canvas>
+                <div class="filter-group" style="display: flex; gap: 8px;">
+                    <button id="btnUpdate" class="btn btn-primary" style="flex: 1;">Atualizar Dashboard</button>
+                    <button id="btnClear" class="btn btn-secondary">Limpar</button>
+                </div>
             </div>
-        </section>
-
-        <!-- GRÁFICO POR TIPO -->
-        <section class="card">
-            <h3>Operações por Tipo</h3>
-            <div class="chart-box">
-                <canvas id="chartTipo"></canvas>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- =====================================================
-         AGENDA / TABELA
-         ===================================================== -->
-    <section class="card" id="cardTabelaAgenda">
-        <h3>Agenda de Coletas / Entregas</h3>
-        <p class="table-help">
-            Resumo dos agendamentos filtrados por data, região e status.
-        </p>
-
-        <div class="table-responsive">
-            <table id="tabelaAgenda">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Região</th>
-                        <th>Status</th>
-                        <th>Pedidos</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Preenchido dinamicamente pelo JavaScript -->
-                </tbody>
-            </table>
         </div>
-    </section>
+
+        <!-- BANNER DE STATUS DO ARQUIVO -->
+        <div id="statusBanner" class="status-banner" style="display: none;">
+            <span id="statusIcon">🟢</span>
+            <div>
+                <strong id="statusMensagem">Base de dados carregada!</strong>
+                <p id="statusDetalhes" style="font-size: 0.85rem; color: #475569;"></p>
+            </div>
+        </div>
+
+        <!-- CARDS DE KPIS -->
+        <div id="painelKPIs" class="kpi-grid">
+            <div class="kpi-card">
+                <h4>Pedidos Gerados (Únicos)</h4>
+                <span class="kpi-value" id="kpiPedidos">0</span>
+            </div>
+            <div class="kpi-card">
+                <h4>Total de Itens / Linhas</h4>
+                <span class="kpi-value" id="kpiLinhas">0</span>
+            </div>
+            <div class="kpi-card">
+                <h4>Pedidos Concluídos</h4>
+                <span class="kpi-value" id="kpiConcluidos">0</span>
+            </div>
+            <div class="kpi-card">
+                <h4>Valor Total Acumulado</h4>
+                <span class="kpi-value" id="kpiValorTotal">R$ 0,00</span>
+            </div>
+            <div class="kpi-card">
+                <h4>Ticket Médio por Pedido</h4>
+                <span class="kpi-value" id="kpiTicketMedio">R$ 0,00</span>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS -->
+        <div class="charts-grid">
+            <div class="card">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Volume de Itens por Status</h3>
+                <div class="chart-container">
+                    <canvas id="chartStatus"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Distribuição por Categoria</h3>
+                <div class="chart-container">
+                    <canvas id="chartCategoria"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA DE DADOS DETALHADOS -->
+        <div class="card">
+            <h3 style="font-size: 1rem; margin-bottom: 16px;">Listagem de Pedidos</h3>
+            <div class="table-responsive">
+                <table id="tabelaAgenda">
+                    <thead>
+                        <tr>
+                            <th>Pedido (Item)</th>
+                            <th>Projeto</th>
+                            <th>Fornecedor</th>
+                            <th>Categoria</th>
+                            <th>Valor Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted);">Aguardando
+                                carregamento de arquivo...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LOGICA JAVASCRIPT -->
+    <script>
+        let dadosBrutos = [];
+        let dadosFiltrados = [];
+        let graficoStatusInstance = null;
+        let graficoCategoriaInstance = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const excelFileInput = document.getElementById("excelFile");
+            const btnUpdate = document.getElementById("btnUpdate");
+            const btnClear = document.getElementById("btnClear");
+
+            if (excelFileInput) excelFileInput.addEventListener("change", processarArquivo);
+            if (btnUpdate) btnUpdate.addEventListener("click", processarEAtualizar);
+            if (btnClear) btnClear.addEventListener("click", limparFiltros);
+
+            // Atualização automática ao alterar selects e datas
+            document.getElementById("statusFilter")?.addEventListener("change", processarEAtualizar);
+            document.getElementById("categoryFilter")?.addEventListener("change", processarEAtualizar);
+            document.getElementById("projectFilter")?.addEventListener("change", processarEAtualizar);
+            document.getElementById("dtInicio")?.addEventListener("change", processarEAtualizar);
+            document.getElementById("dtFim")?.addEventListener("change", processarEAtualizar);
+        });
+
+        /* NORMALIZAÇÃO E EXTRAÇÃO DE COLUNAS */
+        function normalizarChave(str) {
+            return String(str || "")
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, "");
+        }
+
+        function extrairValorColuna(row, nomesPossiveis) {
+            if (!row) return "";
+            const chaves = Object.keys(row);
+
+            for (const nome of nomesPossiveis) {
+                const nomeAlvo = normalizarChave(nome);
+                const chaveEncontrada = chaves.find(k => normalizarChave(k) === nomeAlvo);
+                if (chaveEncontrada && row[chaveEncontrada] !== undefined && row[chaveEncontrada] !== "") {
+                    return String(row[chaveEncontrada]).trim();
+                }
+            }
+            return "";
+        }
+
+        function converterMoedaParaNumero(valor) {
+            if (!valor) return 0;
+            if (typeof valor === 'number') return valor;
+
+            const limpo = String(valor)
+                .replace(/\./g, '')
+                .replace(',', '.')
+                .replace(/[^0-9.-]/g, '');
+
+            return parseFloat(limpo) || 0;
+        }
+
+        function formatarMoedaBRL(valor) {
+            return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        /* LEITURA DO ARQUIVO CSV / EXCEL */
+        function processarArquivo(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const banner = document.getElementById("statusBanner");
+            const statusIcon = document.getElementById("statusIcon");
+            const statusMensagem = document.getElementById("statusMensagem");
+            const statusDetalhes = document.getElementById("statusDetalhes");
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                try {
+                    const buffer = e.target.result;
+
+                    if (file.name.endsWith('.csv')) {
+                        const text = new TextDecoder('utf-8').decode(buffer);
+                        dadosBrutos = converterCSVParaArray(text);
+                    } else {
+                        const data = new Uint8Array(buffer);
+                        const workbook = XLSX.read(data, { type: "array" });
+                        const firstSheet = workbook.SheetNames[0];
+                        dadosBrutos = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+                    }
+
+                    if (!dadosBrutos || dadosBrutos.length === 0) {
+                        throw new Error("Arquivo sem dados ou formato incompatível.");
+                    }
+
+                    banner.style.display = "flex";
+                    statusIcon.innerText = "🟢";
+                    statusMensagem.innerText = "Base de dados carregada com sucesso!";
+                    statusDetalhes.innerText = `${dadosBrutos.length.toLocaleString('pt-BR')} linhas de itens importadas.`;
+
+                    popularFiltrosSelect(dadosBrutos);
+                    processarEAtualizar();
+
+                } catch (error) {
+                    banner.style.display = "flex";
+                    statusIcon.innerText = "🔴";
+                    statusMensagem.innerText = "Erro ao processar o arquivo";
+                    statusDetalhes.innerText = error.message;
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function converterCSVParaArray(strData, strDelimiter = ";") {
+            const lines = strData.split(/\r\n|\n/);
+            if (lines.length === 0) return [];
+
+            const headers = lines[0].split(strDelimiter).map(h => h.replace(/^["\uFEFF]+|["\s]+$/g, ''));
+            const result = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+
+                const row = {};
+                const currentline = lines[i].split(strDelimiter);
+
+                headers.forEach((header, index) => {
+                    let val = currentline[index] || "";
+                    val = val.replace(/^["\s]+|["\s]+$/g, '');
+                    row[header] = val;
+                });
+
+                result.push(row);
+            }
+
+            return result;
+        }
+
+        /* POPULAR FILTROS */
+        function popularFiltrosSelect(dados) {
+            const statusFilter = document.getElementById("statusFilter");
+            const categoryFilter = document.getElementById("categoryFilter");
+            const projectFilter = document.getElementById("projectFilter");
+
+            const statusSet = new Set();
+            const catSet = new Set();
+            const projSet = new Set();
+
+            dados.forEach((row) => {
+                const st = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
+                const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO"]);
+                const proj = extrairValorColuna(row, ["PROJETO"]);
+
+                if (st) statusSet.add(st);
+                if (cat) catSet.add(cat);
+                if (proj) projSet.add(proj);
+            });
+
+            if (statusFilter) {
+                statusFilter.innerHTML = '<option value="TODOS">Todos os Status</option>';
+                Array.from(statusSet).sort().forEach(st => statusFilter.innerHTML += `<option value="${st}">${st}</option>`);
+            }
+
+            if (categoryFilter) {
+                categoryFilter.innerHTML = '<option value="TODAS">Todas as Categorias</option>';
+                Array.from(catSet).sort().forEach(cat => categoryFilter.innerHTML += `<option value="${cat}">${cat}</option>`);
+            }
+
+            if (projectFilter) {
+                projectFilter.innerHTML = '<option value="TODOS">Todos os Projetos</option>';
+                Array.from(projSet)
+                    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                    .forEach(p => projectFilter.innerHTML += `<option value="${p}">Projeto ${p}</option>`);
+            }
+        }
+
+        /* PROCESSAR E FILTRAR */
+        function processarEAtualizar() {
+            if (!dadosBrutos || dadosBrutos.length === 0) return;
+
+            const statusSel = document.getElementById("statusFilter")?.value || "TODOS";
+            const catSel = document.getElementById("categoryFilter")?.value || "TODAS";
+            const projSel = document.getElementById("projectFilter")?.value || "TODOS";
+
+            const dtInicioInput = document.getElementById("dtInicio")?.value;
+            const dtFimInput = document.getElementById("dtFim")?.value;
+
+            const dtInicio = dtInicioInput ? new Date(dtInicioInput + "T00:00:00") : null;
+            const dtFim = dtFimInput ? new Date(dtFimInput + "T23:59:59") : null;
+
+            dadosFiltrados = dadosBrutos.filter((row) => {
+                // 1. Filtro de Status
+                const st = extrairValorColuna(row, ["STATUS", "SITUACAO"]);
+                if (statusSel !== "TODOS" && st !== statusSel) return false;
+
+                // 2. Filtro de Categoria
+                const cat = extrairValorColuna(row, ["CATEGORIA", "TIPO"]);
+                if (catSel !== "TODAS" && cat !== catSel) return false;
+
+                // 3. Filtro de Projeto
+                const proj = extrairValorColuna(row, ["PROJETO"]);
+                if (projSel !== "TODOS" && proj !== projSel) return false;
+
+                // 4. Filtro por Data de Emissão (DD/MM/AAAA)
+                const strEmissao = extrairValorColuna(row, ["EMISSAO", "DATA"]);
+                if (dtInicio || dtFim) {
+                    if (!strEmissao) return false;
+
+                    const partes = strEmissao.split("/");
+                    if (partes.length === 3) {
+                        const dataEmissao = new Date(partes[2], partes[1] - 1, partes[0]);
+                        if (dtInicio && dataEmissao < dtInicio) return false;
+                        if (dtFim && dataEmissao > dtFim) return false;
+                    } else {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            atualizarKPIs(dadosFiltrados);
+            atualizarGraficos(dadosFiltrados);
+            atualizarTabela(dadosFiltrados);
+        }
+
+        /* ATUALIZAR KPIS */
+        function atualizarKPIs(dados) {
+            const pedidosUnicosSet = new Set();
+            const pedidosFinalizadosSet = new Set();
+            let totalItens = dados.length;
+            let valorTotalGeral = 0;
+
+            dados.forEach((row) => {
+                const numPedido = extrairValorColuna(row, ["PEDIDO_", "PEDIDO"]);
+                const status = extrairValorColuna(row, ["STATUS"]);
+                const valorItem = converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL", "VLRTOTAL"]));
+
+                valorTotalGeral += valorItem;
+
+                if (numPedido) {
+                    pedidosUnicosSet.add(numPedido);
+                    if (status.toUpperCase().includes("FINALIZADO") || status.toUpperCase().includes("ENTREGUE")) {
+                        pedidosFinalizadosSet.add(numPedido);
+                    }
+                }
+            });
+
+            const totalPedidosUnicos = pedidosUnicosSet.size;
+            const totalFinalizados = pedidosFinalizadosSet.size;
+            const ticketMedioPorPedido = totalPedidosUnicos > 0 ? (valorTotalGeral / totalPedidosUnicos) : 0;
+
+            document.getElementById("kpiPedidos").innerText = totalPedidosUnicos.toLocaleString('pt-BR');
+            document.getElementById("kpiLinhas").innerText = totalItens.toLocaleString('pt-BR');
+            document.getElementById("kpiConcluidos").innerText = totalFinalizados.toLocaleString('pt-BR');
+            document.getElementById("kpiValorTotal").innerText = formatarMoedaBRL(valorTotalGeral);
+            document.getElementById("kpiTicketMedio").innerText = formatarMoedaBRL(ticketMedioPorPedido);
+        }
+
+        /* ATUALIZAR GRÁFICOS */
+        function atualizarGraficos(dados) {
+            const ctxStatus = document.getElementById("chartStatus")?.getContext("2d");
+            const ctxCategoria = document.getElementById("chartCategoria")?.getContext("2d");
+
+            const statusCounts = {};
+            const catCounts = {};
+
+            dados.forEach((row) => {
+                const st = extrairValorColuna(row, ["STATUS"]) || "Sem Status";
+                const cat = extrairValorColuna(row, ["CATEGORIA"]) || "Outros";
+
+                statusCounts[st] = (statusCounts[st] || 0) + 1;
+                catCounts[cat] = (catCounts[cat] || 0) + 1;
+            });
+
+            if (ctxStatus) {
+                if (graficoStatusInstance) graficoStatusInstance.destroy();
+                graficoStatusInstance = new Chart(ctxStatus, {
+                    type: "bar",
+                    data: {
+                        labels: Object.keys(statusCounts),
+                        datasets: [{
+                            label: "Itens",
+                            data: Object.values(statusCounts),
+                            backgroundColor: "#2563eb"
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            if (ctxCategoria) {
+                if (graficoCategoriaInstance) graficoCategoriaInstance.destroy();
+                graficoCategoriaInstance = new Chart(ctxCategoria, {
+                    type: "doughnut",
+                    data: {
+                        labels: Object.keys(catCounts),
+                        datasets: [{
+                            data: Object.values(catCounts),
+                            backgroundColor: ["#16a34a", "#2563eb", "#eab308", "#dc2626", "#9333ea"]
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+        }
+
+        /* ATUALIZAR TABELA */
+        function atualizarTabela(dados) {
+            const tbody = document.querySelector("#tabelaAgenda tbody");
+            if (!tbody) return;
+
+            tbody.innerHTML = "";
+
+            if (dados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted);">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
+                return;
+            }
+
+            const limiteExibicao = dados.slice(0, 100);
+
+            limiteExibicao.forEach((row) => {
+                const tr = document.createElement("tr");
+                const numPedido = extrairValorColuna(row, ["PEDIDO_"]);
+                const item = extrairValorColuna(row, ["ITEM_"]);
+                const projeto = extrairValorColuna(row, ["PROJETO"]) || "-";
+                const fornecedor = extrairValorColuna(row, ["NOME", "FORNECEDOR"]);
+                const categoria = extrairValorColuna(row, ["CATEGORIA"]);
+                const valor = formatarMoedaBRL(converterMoedaParaNumero(extrairValorColuna(row, ["VLR.TOTAL"])));
+                const status = extrairValorColuna(row, ["STATUS"]);
+
+                tr.innerHTML = `
+            <td><strong>#${numPedido}</strong> (${item})</td>
+            <td>${projeto}</td>
+            <td>${fornecedor}</td>
+            <td>${categoria}</td>
+            <td>${valor}</td>
+            <td><span class="badge badge-${normalizarChave(status)}">${status}</span></td>
+        `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* LIMPAR FILTROS */
+        function limparFiltros() {
+            document.getElementById("statusFilter").value = "TODOS";
+            document.getElementById("categoryFilter").value = "TODAS";
+            document.getElementById("projectFilter").value = "TODOS";
+            document.getElementById("dtInicio").value = "";
+            document.getElementById("dtFim").value = "";
+
+            processarEAtualizar();
+        }
+    </script>
 
 </body>
 
