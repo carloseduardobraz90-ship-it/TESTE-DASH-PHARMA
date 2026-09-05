@@ -12,7 +12,6 @@
     <style>
         :root {
             --primary-color: #2563eb;
-            --primary-hover: #1d4ed8;
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
             --text-color: #1e293b;
@@ -342,7 +341,7 @@
         });
 
         function normalizarChave(str) {
-            return String(str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            return String(str || "").replace(/^["\uFEFF]+|["\s]+$/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
         }
 
         function extrairValorColuna(row, nomesPossiveis) {
@@ -351,7 +350,7 @@
             for (const nome of nomesPossiveis) {
                 const nomeAlvo = normalizarChave(nome);
                 const chaveEncontrada = chaves.find(k => normalizarChave(k) === nomeAlvo);
-                if (chaveEncontrada && row[chaveEncontrada] !== undefined && row[chaveEncontrada] !== null && String(row[chaveEncontrada]).trim() !== "") {
+                if (chaveEncontrada && row[chaveEncontrada] !== undefined && row[chaveEncontrada] !== null) {
                     return String(row[chaveEncontrada]).replace(/^["\s]+|["\s]+$/g, '').trim();
                 }
             }
@@ -384,7 +383,7 @@
             return null;
         }
 
-        /* LEITURA DE ARQUIVO UNIVERSAL (Excel + CSV com suporte a Aspas/Delimitadores) */
+        /* LEITURA DE ARQUIVO ROBUSTA (Diferencia CSV com ';' de XLSX) */
         function processarArquivo(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -394,21 +393,24 @@
 
             reader.onload = function (e) {
                 try {
-                    const data = new Uint8Array(e.target.result);
-                    // XLSX consegue ler arquivos .xlsx, .xls e .csv perfeitamente
-                    const workbook = XLSX.read(data, { type: "array", raw: false });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
+                    const buffer = e.target.result;
 
-                    dadosBrutos = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    if (file.name.toLowerCase().endsWith('.csv')) {
+                        const text = new TextDecoder('utf-8').decode(buffer);
+                        dadosBrutos = parseCSVComSeparador(text);
+                    } else {
+                        const data = new Uint8Array(buffer);
+                        const workbook = XLSX.read(data, { type: "array" });
+                        dadosBrutos = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+                    }
 
                     if (dadosBrutos.length === 0) {
-                        alert("O arquivo selecionado está vazio ou não possui linhas válidas.");
+                        alert("O arquivo selecionado está vazio ou não possui colunas válidas.");
                         return;
                     }
 
                     banner.style.display = "flex";
-                    document.getElementById("statusDetalhes").innerText = `${dadosBrutos.length.toLocaleString('pt-BR')} linhas carregadas.`;
+                    document.getElementById("statusDetalhes").innerText = `${dadosBrutos.length.toLocaleString('pt-BR')} linhas carregadas com sucesso!`;
 
                     popularFiltrosSelect(dadosBrutos);
                     processarEAtualizar();
@@ -417,6 +419,32 @@
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        /* PARSER CUSTOMIZADO PARA CSV COM DESTRINCHAMENTO DE PONTO E VÍRGULA E ASPAS */
+        function parseCSVComSeparador(text) {
+            const lines = text.split(/\r\n|\n/);
+            if (lines.length === 0) return [];
+
+            // Descobrir separador na primeira linha
+            const sep = lines[0].includes(';') ? ';' : ',';
+
+            const headers = lines[0].split(sep).map(h => h.replace(/^["\uFEFF\s]+|["\s]+$/g, ''));
+            const result = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const currentline = line.split(sep);
+                const row = {};
+                headers.forEach((header, index) => {
+                    let val = currentline[index] || "";
+                    row[header] = val.replace(/^["\s]+|["\s]+$/g, '');
+                });
+                result.push(row);
+            }
+            return result;
         }
 
         function popularFiltrosSelect(dados) {
