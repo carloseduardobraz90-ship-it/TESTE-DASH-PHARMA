@@ -1,28 +1,3 @@
-/* ============================================================
- * DASHBOARD OPERACIONAL
- * ============================================================
- *
- * FUNCIONALIDADES:
- *
- * - Leitura XLSX / XLS / CSV
- * - Filtro de Status
- * - Filtro de Categoria
- * - Filtro de Projeto
- * - Filtro de Tipo: Produto / Serviço
- * - Filtro de período de Agendamento
- * - KPIs
- * - Gráfico de Status
- * - Gráfico de Categoria
- * - Gráfico de evolução do valor finalizado por semana
- * - Tabela de pedidos
- *
- * ============================================================ */
-
-
-/* ============================================================
- * VARIÁVEIS GLOBAIS
- * ============================================================ */
-
 let dadosBrutos = [];
 
 let dadosFiltrados = [];
@@ -32,11 +7,6 @@ let graficoStatusInstance = null;
 let graficoCategoriaInstance = null;
 
 let graficoEvolucaoValorInstance = null;
-
-
-/* ============================================================
- * INICIALIZAÇÃO
- * ============================================================ */
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -150,11 +120,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
-
-/* ============================================================
- * NORMALIZAÇÃO DE CHAVES
- * ============================================================ */
-
 function normalizarChave(str) {
 
     return String(str || "")
@@ -165,11 +130,6 @@ function normalizarChave(str) {
         .replace(/[^a-z0-9]/g, "");
 
 }
-
-
-/* ============================================================
- * EXTRAIR VALOR DE COLUNA
- * ============================================================ */
 
 function extrairValorColuna(row, nomesPossiveis) {
 
@@ -211,11 +171,6 @@ function extrairValorColuna(row, nomesPossiveis) {
 
 }
 
-
-/* ============================================================
- * CONVERSÃO DE MOEDA
- * ============================================================ */
-
 function converterMoedaParaNumero(valor) {
 
     if (
@@ -242,13 +197,6 @@ function converterMoedaParaNumero(valor) {
             .replace(/[R$\s]/g, "");
 
 
-    /*
-     * Formato brasileiro:
-     *
-     * 23.969,74
-     *
-     */
-
     if (
         valorStr.includes(".") &&
         valorStr.includes(",")
@@ -260,14 +208,6 @@ function converterMoedaParaNumero(valor) {
                 .replace(",", ".");
 
     }
-
-
-    /*
-     * Apenas vírgula:
-     *
-     * 23969,74
-     *
-     */
 
     else if (
         valorStr.includes(",")
@@ -296,11 +236,6 @@ function converterMoedaParaNumero(valor) {
 
 }
 
-
-/* ============================================================
- * FORMATAÇÃO BRL
- * ============================================================ */
-
 function formatarMoedaBRL(valor) {
 
     return Number(valor || 0)
@@ -314,11 +249,6 @@ function formatarMoedaBRL(valor) {
 
 }
 
-
-/* ============================================================
- * DATA BR
- * ============================================================ */
-
 function parseDataBR(valor) {
 
     if (
@@ -331,10 +261,6 @@ function parseDataBR(valor) {
 
     }
 
-
-    /*
-     * Caso o XLSX entregue Date
-     */
 
     if (valor instanceof Date) {
 
@@ -355,11 +281,6 @@ function parseDataBR(valor) {
         String(valor)
             .trim()
             .replace(/^["']+|["']+$/g, "");
-
-
-    /*
-     * Formato DD/MM/YYYY
-     */
 
     const matchBR =
         str.match(
@@ -402,11 +323,6 @@ function parseDataBR(valor) {
 
     }
 
-
-    /*
-     * Formato YYYY-MM-DD
-     */
-
     const matchISO =
         str.match(
             /^(\d{4})-(\d{1,2})-(\d{1,2})/
@@ -444,11 +360,6 @@ function parseDataBR(valor) {
         }
 
     }
-
-
-    /*
-     * Número serial do Excel
-     */
 
     if (
         /^[0-9]+(\.[0-9]+)?$/.test(str)
@@ -493,20 +404,6 @@ function parseDataBR(valor) {
 
 }
 
-
-/* ============================================================
- * IDENTIFICAR PRODUTO / SERVIÇO
- *
- * REGRA:
- *
- * Se DESCRICAO contém SERVICO/SERVIÇO
- * => SERVICOS
- *
- * Caso contrário
- * => PRODUTOS
- *
- * ============================================================ */
-
 function identificarTipoItem(row) {
 
     const descricao =
@@ -535,11 +432,6 @@ function identificarTipoItem(row) {
     return "PRODUTOS";
 
 }
-
-
-/* ============================================================
- * PROCESSAR ARQUIVO
- * ============================================================ */
 
 function processarArquivo(event) {
 
@@ -610,11 +502,6 @@ function processarArquivo(event) {
                 const nomeArquivo =
                     file.name.toLowerCase();
 
-
-                /*
-                 * CSV
-                 */
-
                 if (
                     nomeArquivo.endsWith(".csv")
                 ) {
@@ -631,11 +518,6 @@ function processarArquivo(event) {
                         );
 
                 }
-
-
-                /*
-                 * XLSX / XLS
-                 */
 
                 else {
 
@@ -711,11 +593,6 @@ function processarArquivo(event) {
                     "================================="
                 );
 
-
-                /*
-                 * Status visual
-                 */
-
                 if (statusBanner) {
 
                     statusBanner.style.display =
@@ -750,19 +627,9 @@ function processarArquivo(event) {
 
                 }
 
-
-                /*
-                 * Popular filtros
-                 */
-
                 popularFiltrosSelect(
                     dadosBrutos
                 );
-
-
-                /*
-                 * Atualizar dashboard
-                 */
 
                 processarEAtualizar();
 
