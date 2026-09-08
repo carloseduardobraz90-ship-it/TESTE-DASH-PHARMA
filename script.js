@@ -1,4 +1,4 @@
-
+SCRIPT.JS
 let dadosBrutos = [];
 
 let dadosFiltrados = [];
@@ -94,6 +94,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (projectFilter) {
 
         projectFilter.addEventListener(
+            "change",
+            processarEAtualizar
+        );
+
+    }
+
+
+    if (regionFilter) {
+
+        regionFilter.addEventListener(
             "change",
             processarEAtualizar
         );
@@ -1223,6 +1233,12 @@ function popularFiltrosSelect(dados) {
         );
 
 
+    const regionFilter =
+        document.getElementById(
+            "regionFilter"
+        );
+
+
     const statusSet =
         new Set();
 
@@ -1232,6 +1248,10 @@ function popularFiltrosSelect(dados) {
 
 
     const projSet =
+        new Set();
+
+
+    const regionSet =
         new Set();
 
 
@@ -1292,6 +1312,9 @@ function popularFiltrosSelect(dados) {
                 );
 
             }
+
+            const local =
+                obterLocalFornecedor(row);
 
             if (local.regiao) {
 
@@ -1544,6 +1567,13 @@ function processarEAtualizar() {
         "TODOS";
 
 
+    const regionSel =
+        document.getElementById(
+            "regionFilter"
+        )?.value ||
+        "TODAS";
+
+
     const dtInicioInput =
         document.getElementById(
             "dtInicio"
@@ -1671,6 +1701,24 @@ function processarEAtualizar() {
                 ) {
 
                     return false;
+
+                }
+
+
+                /*
+                 * REGIÃO DO FORNECEDOR
+                 */
+
+                if (regionSel !== "TODAS") {
+
+                    const local =
+                        obterLocalFornecedor(row);
+
+                    if (local.regiao !== regionSel) {
+
+                        return false;
+
+                    }
 
                 }
 
@@ -3077,11 +3125,16 @@ function atualizarTabela(
                 extrairValorColuna(
                     row,
                     [
+                        "NOME",
+                        "NOME_",
                         "FORNECEDOR",
                         "FORNECEDOR_"
                     ]
                 ) ||
                 "-";
+
+            const local =
+                obterLocalFornecedor(row);
 
 
             const projeto =
@@ -3323,6 +3376,12 @@ function limparFiltros() {
         );
 
 
+    const regionFilter =
+        document.getElementById(
+            "regionFilter"
+        );
+
+
     const dtInicio =
         document.getElementById(
             "dtInicio"
@@ -3363,6 +3422,14 @@ function limparFiltros() {
 
         projectFilter.value =
             "TODOS";
+
+    }
+
+
+    if (regionFilter) {
+
+        regionFilter.value =
+            "TODAS";
 
     }
 
