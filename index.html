@@ -1,3 +1,4 @@
+HTML
 <!DOCTYPE html>
 <html lang="pt-BR">
 
@@ -394,6 +395,20 @@
                     </select>
                 </div>
 
+                <!-- REGIÃO DO FORNECEDOR -->
+                <div class="filter-group">
+                    <label for="regionFilter">
+                        Região do Fornecedor
+                    </label>
+
+                    <select id="regionFilter" class="form-control">
+                        <option value="TODAS">
+                            Todas as Regiões
+                        </option>
+                    </select>
+                </div>
+
+
                 <!-- DATA INICIAL -->
                 <div class="filter-group">
                     <label for="dtInicio">
@@ -526,21 +541,7 @@
                 </span>
 
             </div>
-
-
-            <div class="kpi-card">
-
-                <h4>
-                    Ticket Médio / Pedido
-                </h4>
-
-                <span class="kpi-value" id="kpiTicketMedio">
-                    R$ 0,00
-                </span>
-
-            </div>
-
-        </div>
+</div>
 
 
         <!-- =====================================================
@@ -623,7 +624,7 @@
                 font-size: 1rem;
                 margin-bottom: 16px;
             ">
-                Detalhamento dos Pedidos com Lead Time
+                Detalhamento dos Pedidos
             </h3>
 
             <div class="table-responsive">
@@ -640,7 +641,15 @@
 
 
                             <th>
-                                Fornecedor
+                                Fornecedor (Nome)
+                            </th>
+
+                            <th>
+                                Cidade / UF
+                            </th>
+
+                            <th>
+                                Região
                             </th>
 
                             <th>
@@ -675,7 +684,7 @@
 
                         <tr>
 
-                            <td colspan="8" style="
+                            <td colspan="10" style="
                                     text-align: center;
                                     color: var(--text-muted);
                                 ">
@@ -701,7 +710,7 @@
          JAVASCRIPT EXTERNO
     ========================================================== -->
 
-    <script src="script.js?v=20260905-01"></script>
+    <script src="script.js?v=20260908-02"></script>
 
 </body>
 

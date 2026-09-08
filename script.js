@@ -1,3 +1,4 @@
+
 let dadosBrutos = [];
 
 let dadosFiltrados = [];
@@ -23,6 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const serviceFilter = document.getElementById("serviceFilter");
 
     const projectFilter = document.getElementById("projectFilter");
+    const regionFilter = document.getElementById("regionFilter");
 
     const dtInicio = document.getElementById("dtInicio");
 
@@ -938,6 +940,265 @@ function converterCSVParaArray(texto) {
 }
 
 
+
+/* ============================================================
+ * LOCALIZAÇÃO DO FORNECEDOR
+ *
+ * A base possui a cidade do fornecedor, mas não traz UF.
+ * O mapa abaixo relaciona as cidades presentes na base à UF
+ * e cria uma classificação operacional:
+ * - São Paulo Capital
+ * - Região Metropolitana de São Paulo
+ * - Interior de São Paulo
+ * - Demais estados
+ * ============================================================ */
+
+const MUNICIPIOS_FORNECEDOR = {
+    "AGUAI": ["Aguai", "SP"],
+    "AGUAI/SP": ["Aguai", "SP"],
+    "AMERICANA": ["Americana", "SP"],
+    "AMPARO": ["Amparo", "SP"],
+    "ARACOIABA DA SERRA": ["Araçoiaba da Serra", "SP"],
+    "ARARAQUARA": ["Araraquara", "SP"],
+    "ARARAS": ["Araras", "SP"],
+    "ARACATUBA": ["Araçatuba", "SP"],
+    "ARTUR NOGUEIRA": ["Artur Nogueira", "SP"],
+    "ARUJA": ["Arujá", "SP"],
+    "ATIBAIA": ["Atibaia", "SP"],
+    "BARUERI": ["Barueri", "SP"],
+    "BAURU": ["Bauru", "SP"],
+    "BELO HORIZONTE": ["Belo Horizonte", "MG"],
+    "BLUMENAU": ["Blumenau", "SC"],
+    "BOITUVA": ["Boituva", "SP"],
+    "BOTUCATU": ["Botucatu", "SP"],
+    "CACAPAVA": ["Caçapava", "SP"],
+    "CACHOEIRINHA": ["Cachoeirinha", "RS"],
+    "CAIEIRAS": ["Caieiras", "SP"],
+    "CAJAMAR": ["Cajamar", "SP"],
+    "CAJAMR": ["Cajamar", "SP"],
+    "CAMACARI": ["Camaçari", "BA"],
+    "CAMANDUCAIA": ["Camanducaia", "MG"],
+    "CAMPINAS": ["Campinas", "SP"],
+    "CAMPO LARGO": ["Campo Largo", "PR"],
+    "CARAPICUIBA": ["Carapicuíba", "SP"],
+    "CATANDUVA": ["Catanduva", "SP"],
+    "CATAS ALTAS": ["Catas Altas", "MG"],
+    "COLOMBO": ["Colombo", "PR"],
+    "CONCORDIA": ["Concórdia", "SC"],
+    "COTIA": ["Cotia", "SP"],
+    "CRICIUMA": ["Criciúma", "SC"],
+    "CURITIBA": ["Curitiba", "PR"],
+    "DIADEMA": ["Diadema", "SP"],
+    "DUQUE DE CAXIAS": ["Duque de Caxias", "RJ"],
+    "ELIAS FAUSTO": ["Elias Fausto", "SP"],
+    "EMBU DAS ARTES": ["Embu das Artes", "SP"],
+    "FAZENDA RIO GRANDE": ["Fazenda Rio Grande", "PR"],
+    "FERRAZ DE VASCONCELOS": ["Ferraz de Vasconcelos", "SP"],
+    "FLORIANOPOLIS": ["Florianópolis", "SC"],
+    "FRANCA": ["Franca", "SP"],
+    "FRANCO DA ROCHA": ["Franco da Rocha", "SP"],
+    "GARCA": ["Garça", "SP"],
+    "GARUVA": ["Garuva", "SC"],
+    "GASPAR": ["Gaspar", "SC"],
+    "GOIANA": ["Goiana", "PE"],
+    "GUARAREMA": ["Guararema", "SP"],
+    "GUARULHOS": ["Guarulhos", "SP"],
+    "GUAXUPE": ["Guaxupé", "MG"],
+    "HORTOLANDIA": ["Hortolândia", "SP"],
+    "IBATE": ["Ibaté", "SP"],
+    "ICARA": ["Içara", "SC"],
+    "IJUI": ["Ijuí", "RS"],
+    "INDAIATUBA": ["Indaiatuba", "SP"],
+    "ITAJAI": ["Itajaí", "SC"],
+    "ITAJUBA": ["Itajubá", "MG"],
+    "ITAPECERICA DA SERRA": ["Itapecerica da Serra", "SP"],
+    "ITAPECERICA DA SERRS": ["Itapecerica da Serra", "SP"],
+    "ITAPEVA": ["Itapeva", "SP"],
+    "ITAPEVI": ["Itapevi", "SP"],
+    "ITAPIRA": ["Itapira", "SP"],
+    "ITAQUAQUECETUBA": ["Itaquaquecetuba", "SP"],
+    "ITATIBA": ["Itatiba", "SP"],
+    "ITAU DE MINAS": ["Itaú de Minas", "MG"],
+    "ITU": ["Itu", "SP"],
+    "ITUPEVA": ["Itupeva", "SP"],
+    "JABOTICABAL": ["Jaboticabal", "SP"],
+    "JAGUARIUNA": ["Jaguariúna", "SP"],
+    "JANDIRA": ["Jandira", "SP"],
+    "JARAGUA DO SUL": ["Jaraguá do Sul", "SC"],
+    "JOINVILLE": ["Joinville", "SC"],
+    "JOINVILE": ["Joinville", "SC"],
+    "JOINVILLI": ["Joinville", "SC"],
+    "JUNDIAI": ["Jundiaí", "SP"],
+    "LAGES": ["Lages", "SC"],
+    "LAJEADO": ["Lajeado", "RS"],
+    "LENCOIS PAULISTA": ["Lençóis Paulista", "SP"],
+    "LIMEIRA": ["Limeira", "SP"],
+    "LOUVEIRA": ["Louveira", "SP"],
+    "MAIRIPORA": ["Mairiporã", "SP"],
+    "MARILIA": ["Marília", "SP"],
+    "MARINGA": ["Maringá", "PR"],
+    "MAUA": ["Mauá", "SP"],
+    "MOCOCA": ["Mococa", "SP"],
+    "MOGI DAS CRUZES": ["Mogi das Cruzes", "SP"],
+    "MOJI DAS CRUZES": ["Mogi das Cruzes", "SP"],
+    "MOGI GUACU": ["Mogi Guaçu", "SP"],
+    "MOGI GUAXU": ["Mogi Guaçu", "SP"],
+    "MOGI GUAÇU": ["Mogi Guaçu", "SP"],
+    "MOGI MIRIM": ["Mogi Mirim", "SP"],
+    "MOJI-MIRIM": ["Mogi Mirim", "SP"],
+    "MONTE ALTO": ["Monte Alto", "SP"],
+    "MONTES CLAROS": ["Montes Claros", "MG"],
+    "NOVA IGUACU": ["Nova Iguaçu", "RJ"],
+    "NOVA ODESSA": ["Nova Odessa", "SP"],
+    "NOVO HAMBURGO": ["Novo Hamburgo", "RS"],
+    "OLIMPIA": ["Olímpia", "SP"],
+    "OSASCO": ["Osasco", "SP"],
+    "PARANA": ["Paraná", "PR"],
+    "PAULINIA": ["Paulínia", "SP"],
+    "PELOTAS": ["Pelotas", "RS"],
+    "PINHAIS": ["Pinhais", "PR"],
+    "PIRACAIA": ["Piracaia", "SP"],
+    "PIRACICABA": ["Piracicaba", "SP"],
+    "POA": ["Poá", "SP"],
+    "POCOS DE CALDAS": ["Poços de Caldas", "MG"],
+    "PORTO ALEGRE": ["Porto Alegre", "RS"],
+    "POUSO ALEGRE": ["Pouso Alegre", "MG"],
+    "PRESIDENTE PRUDENTE": ["Presidente Prudente", "SP"],
+    "RIBEIRAO DAS NEVES": ["Ribeirão das Neves", "MG"],
+    "RIBEIRAO PIRES": ["Ribeirão Pires", "SP"],
+    "RIBEIRAO PRETO": ["Ribeirão Preto", "SP"],
+    "RIO CLARO": ["Rio Claro", "SP"],
+    "RIO DE JANEIRO": ["Rio de Janeiro", "RJ"],
+    "RIO DO SUL": ["Rio do Sul", "SC"],
+    "SALTINHO": ["Saltinho", "SP"],
+    "SANTA BARBARA D OESTE": ["Santa Bárbara d'Oeste", "SP"],
+    "SANTA BARBARA D' OESTE": ["Santa Bárbara d'Oeste", "SP"],
+    "SANTA BARBARA D'OESTE": ["Santa Bárbara d'Oeste", "SP"],
+    "SANTA BARBARA DOESTE": ["Santa Bárbara d'Oeste", "SP"],
+    "SANTA CATARINA": ["Santa Catarina", "SC"],
+    "SANTA ISABEL": ["Santa Isabel", "SP"],
+    "SANTA RITA DO SAPUCAI": ["Santa Rita do Sapucaí", "MG"],
+    "SANTANA DE PARNAIBA": ["Santana de Parnaíba", "SP"],
+    "SANTO ANDRE": ["Santo André", "SP"],
+    "SANTO ANTONIO DE POSSE": ["Santo Antônio de Posse", "SP"],
+    "SANTOS": ["Santos", "SP"],
+    "SAO BERNADO DO CAMPO": ["São Bernardo do Campo", "SP"],
+    "SAO BERNARDO DO CAMPO": ["São Bernardo do Campo", "SP"],
+    "SAO CAETANO DO SUL": ["São Caetano do Sul", "SP"],
+    "SAO CARLOS": ["São Carlos", "SP"],
+    "SAO JOAO DA BOA VISTA": ["São João da Boa Vista", "SP"],
+    "SAO JOSE": ["São José", "SC"],
+    "SAO JOSE DO RIO PRETO": ["São José do Rio Preto", "SP"],
+    "SAO JOSE DOS CAMPOS": ["São José dos Campos", "SP"],
+    "SAO JOSE DOS PINHAIS": ["São José dos Pinhais", "PR"],
+    "SAO PAULO": ["São Paulo", "SP"],
+    "SAO ROQUE": ["São Roque", "SP"],
+    "SAPUCAIA DO SUL": ["Sapucaia do Sul", "RS"],
+    "SERRA": ["Serra", "ES"],
+    "SERRA/ES": ["Serra", "ES"],
+    "SERRANA": ["Serrana", "SP"],
+    "SOROCABA": ["Sorocaba", "SP"],
+    "SUMARE": ["Sumaré", "SP"],
+    "SUZANO": ["Suzano", "SP"],
+    "TABOAO DA SERRA": ["Taboão da Serra", "SP"],
+    "TATUAPE": ["Tatuapé (São Paulo)", "SP"],
+    "TAUBATE": ["Taubaté", "SP"],
+    "TIJUCAS": ["Tijucas", "SC"],
+    "TIMBO": ["Timbó", "SC"],
+    "TOLEDO": ["Toledo", "PR"],
+    "UBIRATA": ["Ubiratã", "PR"],
+    "VALINHOS": ["Valinhos", "SP"],
+    "VARGEM GRANDE PAULISTA": ["Vargem Grande Paulista", "SP"],
+    "VARGINHA": ["Varginha", "MG"],
+    "VARZEA PAULISTA": ["Várzea Paulista", "SP"],
+    "VINHEDO": ["Vinhedo", "SP"],
+    "0": ["Não informado", ""],
+    "EX": ["Não informado", ""]
+};
+
+function normalizarCidade(cidade) {
+    return String(cidade || "")
+        .replace(/^["']+|["']+$/g, "")
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/\s+/g, " ");
+}
+
+function obterLocalFornecedor(row) {
+    const cidadeOriginal =
+        extrairValorColuna(row, ["CIDADE"]) || "";
+
+    const chave = normalizarCidade(cidadeOriginal);
+    const cadastro = MUNICIPIOS_FORNECEDOR[chave];
+
+    if (!cadastro) {
+        return {
+            cidade: cidadeOriginal || "Não informado",
+            uf: "",
+            cidadeUf: cidadeOriginal || "Não informado",
+            regiao: "Não identificado"
+        };
+    }
+
+    const cidade = cadastro[0];
+    const uf = cadastro[1];
+
+    let regiao = "Fora de São Paulo";
+
+    if (uf === "SP") {
+        if (
+            chave === "SAO PAULO" ||
+            chave === "TATUAPE"
+        ) {
+            regiao = "São Paulo Capital";
+        } else if (
+            [
+                "ARUJA", "BARUERI", "CAIEIRAS", "CAJAMAR", "CAJAMR",
+                "CARAPICUIBA", "COTIA", "DIADEMA", "EMBU DAS ARTES",
+                "FERRAZ DE VASCONCELOS", "FRANCO DA ROCHA", "GUARAREMA",
+                "GUARULHOS", "ITAPECERICA DA SERRA", "ITAPECERICA DA SERRS",
+                "ITAPEVI", "ITAQUAQUECETUBA", "JANDIRA", "MAIRIPORA",
+                "MAUA", "MOGI DAS CRUZES", "MOJI DAS CRUZES", "OSASCO",
+                "POA", "RIBEIRAO PIRES", "SANTA ISABEL",
+                "SANTANA DE PARNAIBA", "SANTO ANDRE", "SAO BERNADO DO CAMPO",
+                "SAO BERNARDO DO CAMPO", "SAO CAETANO DO SUL", "SUZANO",
+                "TABOAO DA SERRA", "VARGEM GRANDE PAULISTA"
+            ].includes(chave)
+        ) {
+            regiao = "Região Metropolitana de São Paulo";
+        } else {
+            regiao = "Interior de São Paulo";
+        }
+    } else if (uf === "PR") {
+        regiao = "Paraná";
+    } else if (uf === "SC") {
+        regiao = "Santa Catarina";
+    } else if (uf === "MG") {
+        regiao = "Minas Gerais";
+    } else if (uf === "RJ") {
+        regiao = "Rio de Janeiro";
+    } else if (uf === "RS") {
+        regiao = "Rio Grande do Sul";
+    } else if (uf === "ES") {
+        regiao = "Espírito Santo";
+    } else if (uf === "BA") {
+        regiao = "Bahia";
+    } else if (uf === "GO") {
+        regiao = "Goiás";
+    } else if (uf === "PE") {
+        regiao = "Pernambuco";
+    }
+
+    return {
+        cidade,
+        uf,
+        cidadeUf: uf ? `${cidade}/${uf}` : cidade,
+        regiao
+    };
+}
+
 /* ============================================================
  * POPULAR FILTROS
  * ============================================================ */
@@ -1028,6 +1289,14 @@ function popularFiltrosSelect(dados) {
 
                 projSet.add(
                     projeto
+                );
+
+            }
+
+            if (local.regiao) {
+
+                regionSet.add(
+                    local.regiao
                 );
 
             }
@@ -1174,6 +1443,52 @@ function popularFiltrosSelect(dados) {
 
 
                     projectFilter.appendChild(
+                        option
+                    );
+
+                }
+            );
+
+    }
+
+
+    /*
+     * REGIÃO DO FORNECEDOR
+     */
+
+    if (regionFilter) {
+
+        regionFilter.innerHTML =
+            `<option value="TODAS">
+                Todas as Regiões
+            </option>`;
+
+        Array.from(regionSet)
+            .sort(
+                (a, b) =>
+                    a.localeCompare(
+                        b,
+                        "pt-BR",
+                        {
+                            numeric: true
+                        }
+                    )
+            )
+            .forEach(
+                regiao => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        regiao;
+
+                    option.textContent =
+                        regiao;
+
+                    regionFilter.appendChild(
                         option
                     );
 
@@ -1642,15 +1957,7 @@ function atualizarKPIs(dados) {
 
     const totalPedidos =
         pedidosUnicos.size;
-
-
-    const ticketMedio =
-        totalPedidos > 0
-            ? valorTotal / totalPedidos
-            : 0;
-
-
-    const leadTimeMedio =
+const leadTimeMedio =
         totalLeadTime > 0
             ? (
                 somaLeadTime /
@@ -1685,15 +1992,7 @@ function atualizarKPIs(dados) {
         document.getElementById(
             "kpiValorTotal"
         );
-
-
-    const kpiTicketMedio =
-        document.getElementById(
-            "kpiTicketMedio"
-        );
-
-
-    if (kpiPedidos) {
+if (kpiPedidos) {
 
         kpiPedidos.innerText =
             totalPedidos.toLocaleString(
@@ -1729,17 +2028,6 @@ function atualizarKPIs(dados) {
             );
 
     }
-
-
-    if (kpiTicketMedio) {
-
-        kpiTicketMedio.innerText =
-            formatarMoedaBRL(
-                ticketMedio
-            );
-
-    }
-
 }
 
 
@@ -2725,7 +3013,7 @@ function atualizarTabela(
             <tr>
 
                 <td
-                    colspan="8"
+                    colspan="10"
                     style="
                         text-align: center;
                         color: var(--text-muted);

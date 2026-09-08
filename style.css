@@ -1,4 +1,4 @@
-/* ============================================================
+/STYLE.CSS - 1
    RESET E CONFIGURAÇÕES GERAIS
    ============================================================ */
 
@@ -374,4 +374,29 @@ tr:hover {
     .chart-box {
         height: 260px;
     }
+}
+
+
+/* ============================================================
+   TABELA - FORNECEDOR / LOCALIZAÇÃO
+   ============================================================ */
+
+#tabelaAgenda th:nth-child(2),
+#tabelaAgenda td:nth-child(2) {
+    min-width: 280px;
+}
+
+#tabelaAgenda th:nth-child(3),
+#tabelaAgenda td:nth-child(3) {
+    min-width: 170px;
+    white-space: nowrap;
+}
+
+#tabelaAgenda th:nth-child(4),
+#tabelaAgenda td:nth-child(4) {
+    min-width: 210px;
+}
+
+#tabelaAgenda td {
+    vertical-align: middle;
 }
