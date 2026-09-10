@@ -1222,6 +1222,12 @@ function popularFiltrosSelect(dados) {
         );
 
 
+    const regionFilter =
+        document.getElementById(
+            "regionFilter"
+        );
+
+
     const statusSet =
         new Set();
 
@@ -1231,6 +1237,10 @@ function popularFiltrosSelect(dados) {
 
 
     const projSet =
+        new Set();
+
+
+    const regionSet =
         new Set();
 
 
@@ -1291,6 +1301,10 @@ function popularFiltrosSelect(dados) {
                 );
 
             }
+
+
+            const local =
+                obterLocalFornecedor(row);
 
             if (local.regiao) {
 
@@ -1543,6 +1557,13 @@ function processarEAtualizar() {
         "TODOS";
 
 
+    const regionSel =
+        document.getElementById(
+            "regionFilter"
+        )?.value ||
+        "TODAS";
+
+
     const dtInicioInput =
         document.getElementById(
             "dtInicio"
@@ -1670,6 +1691,23 @@ function processarEAtualizar() {
                 ) {
 
                     return false;
+
+                }
+
+
+                /*
+                 * REGIÃO DO FORNECEDOR
+                 */
+                if (regionSel !== "TODAS") {
+
+                    const local =
+                        obterLocalFornecedor(row);
+
+                    if (local.regiao !== regionSel) {
+
+                        return false;
+
+                    }
 
                 }
 
