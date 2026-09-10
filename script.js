@@ -3114,10 +3114,24 @@ function atualizarTabela(
                 extrairValorColuna(
                     row,
                     [
+                        "NOME_",
+                        "NOME",
                         "FORNECEDOR",
                         "FORNECEDOR_"
                     ]
                 ) ||
+                "-";
+
+
+            const local =
+                obterLocalFornecedor(row);
+
+            const cidadeUf =
+                local.cidadeUf ||
+                "-";
+
+            const regiao =
+                local.regiao ||
                 "-";
 
 
@@ -3262,6 +3276,20 @@ function atualizarTabela(
                 <td>
                     ${escapeHTML(
                         fornecedor
+                    )}
+                </td>
+
+
+                <td>
+                    ${escapeHTML(
+                        cidadeUf
+                    )}
+                </td>
+
+
+                <td>
+                    ${escapeHTML(
+                        regiao
                     )}
                 </td>
 
