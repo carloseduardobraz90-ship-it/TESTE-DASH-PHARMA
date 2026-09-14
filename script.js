@@ -1650,6 +1650,13 @@ function processarEAtualizar() {
         "TODAS";
 
 
+    const supplierSel =
+        document.getElementById(
+            "supplierFilter"
+        )?.value ||
+        "TODOS";
+
+
     const dtInicioInput =
         document.getElementById(
             "dtInicio"
@@ -4098,3 +4105,4 @@ function limparFiltros() {
     processarEAtualizar();
 
 }
+
