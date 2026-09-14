@@ -350,12 +350,25 @@
                 <!-- CATEGORIA -->
                 <div class="filter-group">
                     <label for="categoryFilter">
-                        Categoria
+                        Categoria / Tipo (Coluna F)
                     </label>
 
                     <select id="categoryFilter" class="form-control">
                         <option value="TODAS">
                             Todas as Categorias
+                        </option>
+                    </select>
+                </div>
+
+                <!-- FORNECEDOR -->
+                <div class="filter-group">
+                    <label for="supplierFilter">
+                        Fornecedor (Coluna I - NOME)
+                    </label>
+
+                    <select id="supplierFilter" class="form-control">
+                        <option value="TODOS">
+                            Todos os Fornecedores
                         </option>
                     </select>
                 </div>
@@ -532,6 +545,19 @@
             <div class="kpi-card">
 
                 <h4>
+                    Alterações de Ponto
+                </h4>
+
+                <span class="kpi-value" id="kpiAlteracoes">
+                    0
+                </span>
+
+            </div>
+
+
+            <div class="kpi-card">
+
+                <h4>
                     Valor Total Acumulado (Col. Q)
                 </h4>
 
@@ -582,6 +608,84 @@
 
                     <canvas id="chartCategoria"></canvas>
 
+                </div>
+
+            </div>
+
+
+            <!-- VISITAS POR FORNECEDOR / SEMANA -->
+            <div class="card chart-full">
+
+                <h3 style="
+                    font-size: 1rem;
+                    margin-bottom: 8px;
+                ">
+                    Visitas por Fornecedor e Semana
+                </h3>
+
+                <p class="grafico-info">
+                    Conta visitas únicas por fornecedor e data de agendamento. São consideradas as semanas 1 a 5 do mês.
+                    O gráfico exibe os 15 fornecedores com maior número de visitas no período filtrado.
+                </p>
+
+                <div class="chart-container">
+                    <canvas id="chartVisitasSemana"></canvas>
+                </div>
+
+            </div>
+
+
+            <!-- VISITAS POR DIA DA SEMANA -->
+            <div class="card">
+
+                <h3 style="
+                    font-size: 1rem;
+                    margin-bottom: 8px;
+                ">
+                    Visitas por Dia da Semana
+                </h3>
+
+                <p class="grafico-info">
+                    Quantidade de visitas únicas por dia da semana, considerando os filtros aplicados.
+                </p>
+
+                <div class="chart-container">
+                    <canvas id="chartVisitasDia"></canvas>
+                </div>
+
+            </div>
+
+
+            <!-- ALTERAÇÕES DE PONTO -->
+            <div class="card">
+
+                <h3 style="
+                    font-size: 1rem;
+                    margin-bottom: 12px;
+                ">
+                    Fornecedores com Mais Alterações de Ponto
+                </h3>
+
+                <p class="grafico-info">
+                    Identifica pedidos com sufixos .1, .2, .3 etc. O número representa quantas alterações foram feitas no ponto do pedido.
+                </p>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fornecedor</th>
+                                <th style="text-align:right;">Alterações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaAlteracoes">
+                            <tr>
+                                <td colspan="2" style="text-align:center;color:var(--text-muted);">
+                                    Nenhuma alteração de ponto identificada.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
             </div>

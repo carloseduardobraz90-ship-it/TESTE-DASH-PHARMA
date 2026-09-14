@@ -8,6 +8,10 @@ let graficoCategoriaInstance = null;
 
 let graficoEvolucaoValorInstance = null;
 
+let graficoVisitasSemanaInstance = null;
+
+let graficoVisitasDiaInstance = null;
+
 document.addEventListener("DOMContentLoaded", () => {
 
     const excelFile = document.getElementById("excelFile");
@@ -24,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const projectFilter = document.getElementById("projectFilter");
     const regionFilter = document.getElementById("regionFilter");
+    const supplierFilter = document.getElementById("supplierFilter");
 
     const dtInicio = document.getElementById("dtInicio");
 
@@ -93,6 +98,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (projectFilter) {
 
         projectFilter.addEventListener(
+            "change",
+            processarEAtualizar
+        );
+
+    }
+
+    if (regionFilter) {
+
+        regionFilter.addEventListener(
+            "change",
+            processarEAtualizar
+        );
+
+    }
+
+    if (supplierFilter) {
+
+        supplierFilter.addEventListener(
             "change",
             processarEAtualizar
         );
@@ -1243,6 +1266,9 @@ function popularFiltrosSelect(dados) {
     const regionSet =
         new Set();
 
+    const supplierSet =
+        new Set();
+
 
     dados.forEach(
         row => {
@@ -1262,7 +1288,7 @@ function popularFiltrosSelect(dados) {
                 extrairValorColuna(
                     row,
                     [
-                        "CATEGORIA"
+                        "TIPO"
                     ]
                 );
 
@@ -1272,6 +1298,14 @@ function popularFiltrosSelect(dados) {
                     row,
                     [
                         "PROJETO"
+                    ]
+                );
+
+            const fornecedor =
+                extrairValorColuna(
+                    row,
+                    [
+                        "NOME"
                     ]
                 );
 
@@ -1298,6 +1332,14 @@ function popularFiltrosSelect(dados) {
 
                 projSet.add(
                     projeto
+                );
+
+            }
+
+            if (fornecedor) {
+
+                supplierSet.add(
+                    fornecedor
                 );
 
             }
@@ -1510,10 +1552,54 @@ function popularFiltrosSelect(dados) {
 
     }
 
+    /*
+     * FORNECEDOR (NOME)
+     */
+    if (supplierFilter) {
+
+        supplierFilter.innerHTML =
+            `<option value="TODOS">
+                Todos os Fornecedores
+            </option>`;
+
+        Array.from(supplierSet)
+            .sort(
+                (a, b) =>
+                    a.localeCompare(
+                        b,
+                        "pt-BR",
+                        {
+                            numeric: true
+                        }
+                    )
+            )
+            .forEach(
+                fornecedor => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        fornecedor;
+
+                    option.textContent =
+                        fornecedor;
+
+                    supplierFilter.appendChild(
+                        option
+                    );
+
+                }
+            );
+
+    }
+
 }
 
 
-/* ============================================================
+ /* ============================================================
  * PROCESSAR FILTROS
  * ============================================================ */
 
@@ -1637,7 +1723,7 @@ function processarEAtualizar() {
                     extrairValorColuna(
                         row,
                         [
-                            "CATEGORIA"
+                            "TIPO"
                         ]
                     );
 
@@ -1694,6 +1780,27 @@ function processarEAtualizar() {
 
                 }
 
+
+                /*
+                 * FORNECEDOR
+                 */
+                if (supplierSel !== "TODOS") {
+
+                    const fornecedor =
+                        extrairValorColuna(
+                            row,
+                            [
+                                "NOME"
+                            ]
+                        );
+
+                    if (fornecedor !== supplierSel) {
+
+                        return false;
+
+                    }
+
+                }
 
                 /*
                  * REGIÃO DO FORNECEDOR
@@ -2113,7 +2220,7 @@ function atualizarGraficos(dados) {
                 extrairValorColuna(
                     row,
                     [
-                        "CATEGORIA"
+                        "TIPO"
                     ]
                 ) ||
                 "Outros";
@@ -2320,6 +2427,542 @@ function atualizarGraficos(dados) {
  *
  * VLR.TOTAL
  *
+ * ============================================================ */
+
+/* ============================================================
+ * CONTROLE DE VISITAS E ALTERAÇÕES DE PONTO
+ * ============================================================ */
+
+function obterFornecedor(row) {
+
+    return String(
+        extrairValorColuna(
+            row,
+            [
+                "NOME",
+                "NOME_",
+                "FORNECEDOR",
+                "FORNECEDOR_"
+            ]
+        ) || "Sem Fornecedor"
+    ).trim();
+
+}
+
+function obterDataAgendamento(row) {
+
+    return parseDataBR(
+        extrairValorColuna(
+            row,
+            [
+                "AGENDAMENTO"
+            ]
+        )
+    );
+
+}
+
+function obterChavePedidoBase(pedido) {
+
+    const texto =
+        String(pedido || "").trim();
+
+    const match =
+        texto.match(/^(.+?)(?:\.\d+)+$/);
+
+    return match
+        ? match[1]
+        : texto;
+
+}
+
+function obterNumeroAlteracao(pedido) {
+
+    const texto =
+        String(pedido || "").trim();
+
+    const match =
+        texto.match(/\.(\d+)$/);
+
+    if (!match) return 0;
+
+    return parseInt(
+        match[1],
+        10
+    ) || 0;
+
+}
+
+function calcularAlteracoesPorFornecedor(dados) {
+
+    const pedidos =
+        new Map();
+
+    dados.forEach(row => {
+
+        const pedido =
+            extrairValorColuna(
+                row,
+                [
+                    "PEDIDO_",
+                    "PEDIDO"
+                ]
+            );
+
+        if (!pedido) return;
+
+        const fornecedor =
+            obterFornecedor(row);
+
+        const base =
+            obterChavePedidoBase(
+                pedido
+            );
+
+        const alteracao =
+            obterNumeroAlteracao(
+                pedido
+            );
+
+        const chave =
+            `${fornecedor}||${base}`;
+
+        const atual =
+            pedidos.get(chave) || 0;
+
+        if (alteracao > atual) {
+
+            pedidos.set(
+                chave,
+                alteracao
+            );
+
+        }
+
+    });
+
+    const resultado = {};
+
+    pedidos.forEach(
+        (alteracoes, chave) => {
+
+            if (!alteracoes) return;
+
+            const fornecedor =
+                chave.split("||")[0];
+
+            resultado[fornecedor] =
+                (
+                    resultado[fornecedor] || 0
+                ) + alteracoes;
+
+        }
+    );
+
+    return resultado;
+
+}
+
+function obterVisitasUnicas(dados) {
+
+    const visitas =
+        new Set();
+
+    dados.forEach(row => {
+
+        const fornecedor =
+            obterFornecedor(row);
+
+        const data =
+            obterDataAgendamento(
+                row
+            );
+
+        if (!data) return;
+
+        const chave =
+            `${fornecedor}||${data.getFullYear()}-${String(
+                data.getMonth() + 1
+            ).padStart(2, "0")}-${String(
+                data.getDate()
+            ).padStart(2, "0")}`;
+
+        visitas.add(chave);
+
+    });
+
+    return visitas;
+
+}
+
+function atualizarGraficoVisitasSemana(dados) {
+
+    const canvas =
+        document.getElementById(
+            "chartVisitasSemana"
+        );
+
+    if (!canvas) return;
+
+    if (graficoVisitasSemanaInstance) {
+
+        graficoVisitasSemanaInstance.destroy();
+
+        graficoVisitasSemanaInstance = null;
+
+    }
+
+    const visitas =
+        obterVisitasUnicas(dados);
+
+    const mapa = {};
+
+    visitas.forEach(chave => {
+
+        const partes =
+            chave.split("||");
+
+        const fornecedor =
+            partes[0];
+
+        const dataPartes =
+            partes[1].split("-");
+
+        const data =
+            new Date(
+                Number(dataPartes[0]),
+                Number(dataPartes[1]) - 1,
+                Number(dataPartes[2])
+            );
+
+        const semana =
+            Math.floor(
+                (data.getDate() - 1) / 7
+            ) + 1;
+
+        if (!mapa[fornecedor]) {
+
+            mapa[fornecedor] = {};
+
+        }
+
+        mapa[fornecedor][semana] =
+            (
+                mapa[fornecedor][semana] || 0
+            ) + 1;
+
+    });
+
+    const fornecedores =
+        Object.keys(mapa)
+            .sort(
+                (a, b) => {
+
+                    const totalA =
+                        Object.values(
+                            mapa[a]
+                        ).reduce(
+                            (x, y) => x + y,
+                            0
+                        );
+
+                    const totalB =
+                        Object.values(
+                            mapa[b]
+                        ).reduce(
+                            (x, y) => x + y,
+                            0
+                        );
+
+                    return totalB - totalA;
+
+                }
+            )
+            .slice(0, 15);
+
+    const labels =
+        fornecedores;
+
+    const datasets =
+        [1, 2, 3, 4, 5].map(
+            semana => ({
+
+                label:
+                    `Semana ${semana}`,
+
+                data:
+                    fornecedores.map(
+                        fornecedor =>
+                            mapa[fornecedor]?.[semana] || 0
+                    ),
+
+                borderWidth:
+                    1
+
+            })
+        );
+
+    graficoVisitasSemanaInstance =
+        new Chart(
+            canvas.getContext("2d"),
+            {
+
+                type:
+                    "bar",
+
+                data: {
+                    labels,
+                    datasets
+                },
+
+                options: {
+
+                    responsive:
+                        true,
+
+                    maintainAspectRatio:
+                        false,
+
+                    scales: {
+
+                        y: {
+
+                            beginAtZero:
+                                true,
+
+                            ticks: {
+                                precision: 0
+                            }
+
+                        }
+
+                    },
+
+                    plugins: {
+
+                        legend: {
+                            position:
+                                "top"
+                        },
+
+                        tooltip: {
+
+                            callbacks: {
+
+                                footer: itens => {
+
+                                    const total =
+                                        itens.reduce(
+                                            (s, item) =>
+                                                s + Number(
+                                                    item.raw || 0
+                                                ),
+                                            0
+                                        );
+
+                                    return `Total: ${total} visita(s)`;
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            }
+        );
+
+}
+
+function atualizarGraficoVisitasDia(dados) {
+
+    const canvas =
+        document.getElementById(
+            "chartVisitasDia"
+        );
+
+    if (!canvas) return;
+
+    if (graficoVisitasDiaInstance) {
+
+        graficoVisitasDiaInstance.destroy();
+
+        graficoVisitasDiaInstance = null;
+
+    }
+
+    const visitas =
+        obterVisitasUnicas(dados);
+
+    const ordemDias = [
+        "Domingo",
+        "Segunda-feira",
+        "Terça-feira",
+        "Quarta-feira",
+        "Quinta-feira",
+        "Sexta-feira",
+        "Sábado"
+    ];
+
+    const contagem =
+        Array(7).fill(0);
+
+    visitas.forEach(chave => {
+
+        const dataPartes =
+            chave.split("||")[1]
+                .split("-");
+
+        const data =
+            new Date(
+                Number(dataPartes[0]),
+                Number(dataPartes[1]) - 1,
+                Number(dataPartes[2])
+            );
+
+        contagem[
+            data.getDay()
+        ]++;
+
+    });
+
+    graficoVisitasDiaInstance =
+        new Chart(
+            canvas.getContext("2d"),
+            {
+
+                type:
+                    "bar",
+
+                data: {
+
+                    labels:
+                        ordemDias,
+
+                    datasets: [
+                        {
+
+                            label:
+                                "Visitas únicas",
+
+                            data:
+                                contagem,
+
+                            borderWidth:
+                                1
+
+                        }
+                    ]
+
+                },
+
+                options: {
+
+                    responsive:
+                        true,
+
+                    maintainAspectRatio:
+                        false,
+
+                    scales: {
+
+                        y: {
+
+                            beginAtZero:
+                                true,
+
+                            ticks: {
+                                precision: 0
+                            }
+
+                        }
+
+                    },
+
+                    plugins: {
+
+                        legend: {
+                            display: false
+                        }
+
+                    }
+
+                }
+
+            }
+        );
+
+}
+
+function atualizarControleAlteracoes(dados) {
+
+    const alteracoes =
+        calcularAlteracoesPorFornecedor(
+            dados
+        );
+
+    const total =
+        Object.values(
+            alteracoes
+        ).reduce(
+            (s, v) => s + v,
+            0
+        );
+
+    const kpi =
+        document.getElementById(
+            "kpiAlteracoes"
+        );
+
+    if (kpi) {
+
+        kpi.innerText =
+            total.toLocaleString(
+                "pt-BR"
+            );
+
+    }
+
+    const tabela =
+        document.getElementById(
+            "tabelaAlteracoes"
+        );
+
+    if (!tabela) return;
+
+    const ranking =
+        Object.entries(
+            alteracoes
+        )
+            .sort(
+                (a, b) => b[1] - a[1]
+            );
+
+    tabela.innerHTML =
+        ranking.length
+            ? ranking
+                .map(
+                    ([fornecedor, quantidade]) =>
+                        `<tr>
+                            <td>${escapeHTML(fornecedor)}</td>
+                            <td style="text-align:right;"><strong>${quantidade}</strong></td>
+                        </tr>`
+                )
+                .join("")
+            : `<tr>
+                    <td colspan="2" style="text-align:center;color:var(--text-muted);">
+                        Nenhuma alteração de ponto identificada.
+                    </td>
+               </tr>`;
+
+}
+
+
+/* ============================================================
+ * EVOLUÇÃO DO VALOR FINALIZADO POR SEMANA
  * ============================================================ */
 
 function atualizarGraficoEvolucaoValor(
