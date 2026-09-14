@@ -155,6 +155,18 @@ function normalizarChave(str) {
 
 }
 
+/**
+ * PADRONIZA O NOME DO FORNECEDOR PARA FILTROS E INDICADORES.
+ * Remove o CNPJ informado entre parênteses no final do nome e
+ * normaliza espaços, sem alterar o valor original da base.
+ */
+function normalizarFornecedor(valor) {
+    return String(valor || "")
+        .replace(/\s*\(\s*CNPJ\s*[^)]*\)\s*$/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
 function extrairValorColuna(row, nomesPossiveis) {
 
     if (!row) return "";
@@ -1251,6 +1263,12 @@ function popularFiltrosSelect(dados) {
         );
 
 
+    const supplierFilter =
+        document.getElementById(
+            "supplierFilter"
+        );
+
+
     const statusSet =
         new Set();
 
@@ -1338,9 +1356,16 @@ function popularFiltrosSelect(dados) {
 
             if (fornecedor) {
 
-                supplierSet.add(
-                    fornecedor
-                );
+                const fornecedorPadronizado =
+                    normalizarFornecedor(
+                        fornecedor
+                    );
+
+                if (fornecedorPadronizado) {
+                    supplierSet.add(
+                        fornecedorPadronizado
+                    );
+                }
 
             }
 
@@ -1794,11 +1819,13 @@ function processarEAtualizar() {
                 if (supplierSel !== "TODOS") {
 
                     const fornecedor =
-                        extrairValorColuna(
-                            row,
-                            [
-                                "NOME"
-                            ]
+                        normalizarFornecedor(
+                            extrairValorColuna(
+                                row,
+                                [
+                                    "NOME"
+                                ]
+                            )
                         );
 
                     if (fornecedor !== supplierSel) {
@@ -2442,7 +2469,7 @@ function atualizarGraficos(dados) {
 
 function obterFornecedor(row) {
 
-    return String(
+    const fornecedor =
         extrairValorColuna(
             row,
             [
@@ -2451,8 +2478,11 @@ function obterFornecedor(row) {
                 "FORNECEDOR",
                 "FORNECEDOR_"
             ]
-        ) || "Sem Fornecedor"
-    ).trim();
+        );
+
+    return normalizarFornecedor(
+        fornecedor || "Sem Fornecedor"
+    );
 
 }
 
@@ -4105,4 +4135,3 @@ function limparFiltros() {
     processarEAtualizar();
 
 }
-
