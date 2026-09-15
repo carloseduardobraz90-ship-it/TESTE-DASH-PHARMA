@@ -1284,8 +1284,8 @@ function popularFiltrosSelect(dados) {
     const regionSet =
         new Set();
 
-    const supplierSet =
-        new Set();
+    const supplierMap =
+        new Map();
 
 
     dados.forEach(
@@ -1323,7 +1323,10 @@ function popularFiltrosSelect(dados) {
                 extrairValorColuna(
                     row,
                     [
-                        "NOME"
+                        "NOME",
+                        "NOME_",
+                        "FORNECEDOR",
+                        "FORNECEDOR_"
                     ]
                 );
 
@@ -1362,9 +1365,22 @@ function popularFiltrosSelect(dados) {
                     );
 
                 if (fornecedorPadronizado) {
-                    supplierSet.add(
-                        fornecedorPadronizado
-                    );
+                    const chaveFornecedor =
+                        normalizarChave(
+                            fornecedorPadronizado
+                        );
+
+                    if (
+                        chaveFornecedor &&
+                        !supplierMap.has(
+                            chaveFornecedor
+                        )
+                    ) {
+                        supplierMap.set(
+                            chaveFornecedor,
+                            fornecedorPadronizado
+                        );
+                    }
                 }
 
             }
@@ -1587,7 +1603,7 @@ function popularFiltrosSelect(dados) {
                 Todos os Fornecedores
             </option>`;
 
-        Array.from(supplierSet)
+        Array.from(supplierMap.values())
             .sort(
                 (a, b) =>
                     a.localeCompare(
@@ -1624,9 +1640,9 @@ function popularFiltrosSelect(dados) {
 }
 
 
- /* ============================================================
- * PROCESSAR FILTROS
- * ============================================================ */
+/* ============================================================
+* PROCESSAR FILTROS
+* ============================================================ */
 
 function processarEAtualizar() {
 
@@ -1828,10 +1844,11 @@ function processarEAtualizar() {
                             )
                         );
 
-                    if (fornecedor !== supplierSel) {
-
+                    if (
+                        normalizarChave(fornecedor) !==
+                        normalizarChave(supplierSel)
+                    ) {
                         return false;
-
                     }
 
                 }
@@ -1937,6 +1954,19 @@ function processarEAtualizar() {
         dadosFiltrados
     );
 
+
+
+    atualizarGraficoVisitasSemana(
+        dadosFiltrados
+    );
+
+    atualizarGraficoVisitasDia(
+        dadosFiltrados
+    );
+
+    atualizarControleAlteracoes(
+        dadosFiltrados
+    );
 
     atualizarTabela(
         dadosFiltrados
@@ -2135,7 +2165,7 @@ function atualizarKPIs(dados) {
 
     const totalPedidos =
         pedidosUnicos.size;
-const leadTimeMedio =
+    const leadTimeMedio =
         totalLeadTime > 0
             ? (
                 somaLeadTime /
@@ -2170,7 +2200,7 @@ const leadTimeMedio =
         document.getElementById(
             "kpiValorTotal"
         );
-if (kpiPedidos) {
+    if (kpiPedidos) {
 
         kpiPedidos.innerText =
             totalPedidos.toLocaleString(
@@ -3565,7 +3595,7 @@ function atualizarGraficoEvolucaoValor(
 
                                         const variacao =
                                             variacoes[
-                                                index
+                                            index
                                             ];
 
 
@@ -3943,55 +3973,55 @@ function atualizarTabela(
                 <td>
                     <strong>
                         #${escapeHTML(
-                            numPedido
-                        )}
+                numPedido
+            )}
                     </strong>
 
                     (${escapeHTML(
-                        item
-                    )})
+                item
+            )})
                 </td>
 
 
                 <td>
                     ${escapeHTML(
-                        fornecedor
-                    )}
+                fornecedor
+            )}
                 </td>
 
 
                 <td>
                     ${escapeHTML(
-                        cidadeUf
-                    )}
+                cidadeUf
+            )}
                 </td>
 
 
                 <td>
                     ${escapeHTML(
-                        regiao
-                    )}
+                regiao
+            )}
                 </td>
 
 
                 <td>
                     ${escapeHTML(
-                        projeto
-                    )}
+                projeto
+            )}
                 </td>
 
 
                 <td>
                     ${escapeHTML(
-                        dtEmissao
-                    )}
+                dtEmissao
+            )}
                 </td>
 
 
                 <td>
                     ${escapeHTML(
-                        dtAgendamento
-                    )}
+                dtAgendamento
+            )}
                 </td>
 
 
@@ -4018,8 +4048,8 @@ function atualizarTabela(
                         class="badge badge-${classeStatus || "default"}">
 
                         ${escapeHTML(
-                            status
-                        )}
+                status
+            )}
 
                     </span>
 
@@ -4068,6 +4098,17 @@ function limparFiltros() {
         );
 
 
+
+
+    const regionFilter =
+        document.getElementById(
+            "regionFilter"
+        );
+
+    const supplierFilter =
+        document.getElementById(
+            "supplierFilter"
+        );
     const dtInicio =
         document.getElementById(
             "dtInicio"
@@ -4112,6 +4153,17 @@ function limparFiltros() {
     }
 
 
+
+
+    if (regionFilter) {
+        regionFilter.value =
+            "TODAS";
+    }
+
+    if (supplierFilter) {
+        supplierFilter.value =
+            "TODOS";
+    }
     if (dtInicio) {
 
         dtInicio.value =
